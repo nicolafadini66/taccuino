@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <script>window.TACCUINO_ARCHIVIO="https://script.google.com/macros/s/AKfycbzkUhOcQu30D9b6zGMEXKELU37J30rlg7SYTvGE673U4pbE42D3472zPMwLR7anJYTWCg/exec";</script>
-<script>window.TACCUINO_BUILD="26/10/2026 14:02";</script>
+<script>window.TACCUINO_BUILD="26/10/2026 14:38";</script>
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -1546,8 +1546,29 @@ async function buildPdf(recs,sc,blank){
   recs.forEach(r=>drawSheet(sheetSpec(r,sc,blank),D));
   return pdf.output('blob');
 }
+/* app indipendente: "Salva PDF" mette il file nella cartella dello scavo sul Drive dell'archivio; poi, a richiesta, anche altrove */
+async function pdfToDrive(sc,blob,name){
+  if(!STANDALONE||!sc||!API.url)return null;
+  return api('saveFile',{scavo:sc.id,kind:'pdf',name,base64:b64(new Uint8Array(await blob.arrayBuffer())),mime:'application/pdf'});
+}
+function savedBar(msg,url,elsewhere){
+  document.getElementById('savedBar')?.remove();
+  const bar=document.createElement('div');bar.id='savedBar';bar.setAttribute('role','status');
+  bar.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:61;background:#1B221F;color:#fff;padding:10px 12px;border-radius:10px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;box-shadow:0 4px 18px rgba(0,0,0,.3);width:max-content;max-width:calc(100% - 32px)';
+  const bs='border:0;border-radius:8px;padding:8px 12px;font-weight:600;font:inherit';
+  bar.innerHTML=`<span style="flex:1 1 220px">${esc(msg)}</span>${url?`<a href="${esc(url)}" target="_blank" rel="noopener" style="color:#F3E63F">Apri la cartella</a>`:''}`+
+    `<button type="button" data-el style="${bs};background:#F3E63F;color:#1b1606">Salva anche altrove</button><button type="button" data-x aria-label="Chiudi" style="${bs};background:transparent;color:#fff">✕</button>`;
+  bar.querySelector('[data-el]').onclick=()=>{bar.remove();elsewhere()};bar.querySelector('[data-x]').onclick=()=>bar.remove();
+  document.body.append(bar);setTimeout(()=>bar.remove(),20000);
+}
 async function exportPdf(recs,sc,blank,name){
-  try{toast('Preparo il PDF…');const b=await buildPdf(recs,sc,blank);await offerFile(name,b)}
+  try{toast('Preparo il PDF…');const b=await buildPdf(recs,sc,blank);
+    if(STANDALONE&&!blank&&sc){
+      const dn=recs.length===1?pdfName(recs[0]):name;
+      try{const res=await pdfToDrive(sc,b,dn);if(res){$('#toast').hidden=true;savedBar(`PDF salvato su Drive in “${folderName(sc)} / Schede PDF”.`,res.cartella,()=>offerFile(name,b));return}}
+      catch(e){toast(e.code==='unavailable'||!navigator.onLine?'Senza connessione non posso salvarlo su Drive: lo salvi sul dispositivo.':'Salvataggio su Drive non riuscito: '+e.message)}
+    }
+    await offerFile(name,b)}
   catch(e){toast(e.message==='offline'?'Il PDF richiede la connessione la prima volta che lo generi su questo dispositivo.':'PDF non riuscito: '+e.message)}
 }
 
@@ -1712,7 +1733,7 @@ function renderScheda(){
     </div>
     <div class="row">
       <button id="prev" class="ghost" aria-label="Scheda precedente">‹</button><button id="next" class="ghost" aria-label="Scheda successiva">›</button>
-      ${sample&&canWrite?'<button id="spellGo">Ortografia</button>':''}<button id="xPrev">Anteprima</button><button id="xPdf">PDF</button>
+      ${sample&&canWrite?'<button id="spellGo">Ortografia</button>':''}<button id="xPrev">Anteprima</button><button id="xPdf">${STANDALONE?'Salva PDF':'PDF'}</button>
     </div>
   </div>
   ${r.pend&&Object.keys(r.pend).length?`<div class="banner">${isOwnerV?`Questa scheda ha ${Object.keys(r.pend).length} modifiche proposte dai collaboratori. <button class="ghost" id="goVal">Vai a Da validare</button>`:`Le modifiche evidenziate sono in attesa di validazione da parte del responsabile scientifico. Le esportazioni usano i valori già validati.`}${r.pend._delete?' È stata chiesta l’eliminazione della scheda.':''}</div>`:''}
@@ -1892,7 +1913,7 @@ function bindSaveBar(r){
 function completeRec(r){
     r.stato='completa';r.completataDa=S.me;r.completataIl=Date.now();if(!String(r.responsabile||'').trim())r.responsabile=S.me;reqShow=null;saveRec(r);
     toast(`Scheda ${r.tipo} ${r.numero} salvata come completa`);
-    if(STANDALONE&&navigator.onLine){const sc=curScavo();setTimeout(()=>uploadPdf(sc,r).then(()=>toast(`PDF della ${r.tipo} ${r.numero} salvato nella cartella dello scavo`)).catch(()=>{}),800)}const m=$('#main');const open=[...m.querySelectorAll('details.sec')].map(d=>d.open);renderScheda();m.querySelectorAll('details.sec').forEach((d,i)=>d.open=open[i]);
+const m=$('#main');const open=[...m.querySelectorAll('details.sec')].map(d=>d.open);renderScheda();m.querySelectorAll('details.sec').forEach((d,i)=>d.open=open[i]);
 }
 /* ---- Anteprima: la scheda come uscirà nel PDF ---- */
 let measureCtx=null;
@@ -1918,7 +1939,7 @@ function openPreview(r,toSave){
   o.innerHTML=`<div class="ov-head"><div><h2 id="ovTitle">${toSave?'Controlla la scheda prima di salvarla':'Anteprima della scheda'}</h2>
     <div class="muted small">${esc(r.tipo)} ${esc(r.numero)} · così apparirà nel PDF da consegnare${r.pend&&Object.keys(r.pend).length?' · le modifiche in attesa di validazione non sono incluse':''}</div></div></div>
     ${(()=>{const sv=sheetSvg(prov,sc);return (sv.over.length?`<div class="banner" style="max-width:760px;margin:0 auto 12px">Il testo di <b>${esc([...new Set(sv.over)].join(', ').toLowerCase())}</b> non entra nello spazio della scheda anche al corpo minimo ed è stato tagliato: accorcialo.</div>`:'')+`<div class="sheetwrap">${sv.html}</div>`})()}
-    <div class="ov-foot"><button id="ovBack">${toSave?'Torna a modificare':'Chiudi'}</button><button id="ovPdf">Scarica il PDF</button>${toSave?'<button class="primary" id="ovSave">Conferma e salva</button>':''}</div>`;
+    <div class="ov-foot"><button id="ovBack">${toSave?'Torna a modificare':'Chiudi'}</button><button id="ovPdf">${STANDALONE?'Salva il PDF':'Scarica il PDF'}</button>${toSave?'<button class="primary" id="ovSave">Conferma e salva</button>':''}</div>`;
   o.hidden=false;document.body.style.overflow='hidden';
   $('#ovBack').onclick=closePreview;$('#ovBack').focus();
   $('#ovPdf').onclick=()=>exportPdf([prov],sc,false,`Scheda_${r.tipo}_${safe(r.numero)}.pdf`);
@@ -2213,7 +2234,11 @@ function renderScavo(){
   b('ePdf',()=>{const l=sel();if(l.length)exportPdf(l,sc,false,`Schede_${nm(sc)}.pdf`)});
   b('ePdfZip',async()=>{const l=sel();if(!l.length)return;
     try{toast(`Preparo ${l.length} PDF…`);const files=[];for(const r of l){const bl=await buildPdf([r],sc,false);files.push({name:`Scheda_${r.tipo}_${safe(r.numero)}.pdf`,data:new Uint8Array(await bl.arrayBuffer())})}
-      await offerFile(`Schede_${nm(sc)}.zip`,new Blob([zipStore(files)]))}
+      const zip=new Blob([zipStore(files)]),zname=`Schede_${nm(sc)}.zip`;
+      if(STANDALONE&&navigator.onLine){try{let res=null,i=0;for(const r of l){toast(`Salvo su Drive (${++i}/${l.length})…`);const bl=await buildPdf([r],sc,false);res=await pdfToDrive(sc,bl,pdfName(r))}
+          $('#toast').hidden=true;savedBar(`${l.length} PDF salvati su Drive in “${folderName(sc)} / Schede PDF”.`,res?.cartella,()=>offerFile(zname,zip));return}
+        catch(e){toast('Salvataggio su Drive non riuscito: '+e.message)}}
+      await offerFile(zname,zip)}
     catch(e){toast(e.message==='offline'?'I PDF richiedono la connessione la prima volta.':'Esportazione non riuscita: '+e.message)}});
   const blankRec=t=>({tipo:t,numero:'',rel:{}});
   b('bKp',()=>exportPdf([{tipo:'US',segno:'positiva',numero:'',rel:{}}],sc,true,'Scheda_US_positiva_vuota.pdf'));
