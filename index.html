@@ -7,6 +7,8 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<script>window.TACCUINO_ARCHIVIO="https://script.google.com/macros/s/AKfycbzkUhOcQu30D9b6zGMEXKELU37J30rlg7SYTvGE673U4pbE42D3472zPMwLR7anJYTWCg/exec";</script>
+<script>window.TACCUINO_BUILD="26/10/2026 14:02";</script>
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -922,6 +924,8 @@ const STANDALONE=!(window.claude&&window.claude.use);
 let API={};try{API=JSON.parse(localStorage.getItem('taccuino-api')||'{}')||{}}catch(e){API={}}
 try{const q=new URLSearchParams(location.search).get('archivio');if(STANDALONE&&q&&q!==API.url){API={url:q};localStorage.setItem('taccuino-api',JSON.stringify(API))}}catch(e){}
 function saveApi(){try{localStorage.setItem('taccuino-api',JSON.stringify(API))}catch(e){}}
+/* archivio predefinito scritto nel pacchetto: l'icona sulla schermata Home sa già a quale archivio collegarsi */
+if(STANDALONE&&!API.url&&window.TACCUINO_ARCHIVIO){API={url:window.TACCUINO_ARCHIVIO};saveApi()}
 const hashStr=t=>{let h=5381;for(let i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))>>>0;return h.toString(36)};
 const err=(m,code)=>Object.assign(new Error(m),{code});
 async function api(action,payload={}){
@@ -991,10 +995,10 @@ function renderLogin(){
     ${API.url?'':`<label class="f"><span>Indirizzo dell’archivio</span><input id="lgUrl" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec"></label>`}
     <label class="f"><span>Nome utente</span><input id="lgUser" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="username"></label>
     <label class="f"><span>PIN</span><input id="lgPin" type="password" inputmode="numeric" autocomplete="current-password"></label>
-    <button class="primary" id="lgGo" style="align-self:flex-start">Entra</button><div id="lgMsg" class="note" role="status"></div>
+    <button class="primary" id="lgGo" style="align-self:flex-start">Entra</button><div id="lgMsg" class="note" role="status"></div><div class="note" style="opacity:.6;font-size:12px">Versione app: ${esc(window.TACCUINO_BUILD||'—')}</div>
     ${API.url?'<button class="ghost" id="lgOther" style="align-self:flex-start">Collegati a un altro archivio</button>':''}</section>`;
-  const go=async()=>{const url=(API.url||$('#lgUrl').value.trim()),u=$('#lgUser').value.trim(),pin=$('#lgPin').value.trim();
-    if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)&&!/^http:\/\/localhost[:/]/.test(url)){$('#lgMsg').textContent='L’indirizzo dell’archivio deve iniziare con https://script.google.com/';return}
+  const go=async()=>{let url=API.url;if(!url){const raw=$('#lgUrl').value.trim(),m=/https?:\/\/\S+/i.exec(raw);url=m?m[0].replace(/^https?/i,x=>x.toLowerCase()).replace(/[)\].,;"'»]+$/,''):raw}const u=$('#lgUser').value.trim(),pin=$('#lgPin').value.trim();
+    if(!/^https:\/\/script\.google(usercontent)?\.com\//i.test(url)&&!/^http:\/\/localhost[:/]/.test(url)){$('#lgMsg').textContent='L’indirizzo dell’archivio deve iniziare con https://script.google.com/';return}
     if(!u||!pin){$('#lgMsg').textContent='Scrivi nome utente e PIN.';return}
     $('#lgMsg').textContent='Controllo…';API={url};
     try{const j=await api('login',{username:u,pin});API={url,token:j.token,user:j.user,archivio:j.archivio};saveApi();location.reload()}
@@ -1010,6 +1014,22 @@ function installPwa(){
     add('meta',{name:'apple-mobile-web-app-capable',content:'yes'});add('meta',{name:'mobile-web-app-capable',content:'yes'});
     add('meta',{name:'apple-mobile-web-app-title',content:'Taccuino'});add('meta',{name:'theme-color',content:'#1B221F'});
     if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+    const vb=document.createElement('div');vb.id='verTag';vb.textContent='versione '+(window.TACCUINO_BUILD||'—');
+    vb.style.cssText='position:fixed;right:8px;bottom:4px;font-size:10px;opacity:.45;pointer-events:none;z-index:5';document.body.append(vb);
+    checkUpdate();setInterval(checkUpdate,30*60*1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate()});
+  }catch(e){}
+}
+/* controlla se su GitHub c'è una versione più nuova dell'app e propone di aggiornare */
+async function checkUpdate(){
+  if(!window.TACCUINO_BUILD||!navigator.onLine||document.getElementById('updBar'))return;
+  try{
+    const t=await (await fetch(location.pathname,{cache:'reload'})).text();
+    const m=/TACCUINO_BUILD="([^"]+)"/.exec(t);if(!m||m[1]===window.TACCUINO_BUILD)return;
+    try{const reg=await navigator.serviceWorker?.getRegistration();reg&&reg.update()}catch(e){}
+    const bar=document.createElement('div');bar.id='updBar';bar.setAttribute('role','status');
+    bar.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:60;background:#1B221F;color:#fff;padding:10px 14px;border-radius:10px;display:flex;gap:12px;align-items:center;box-shadow:0 4px 18px rgba(0,0,0,.3);max-width:calc(100% - 32px)';
+    bar.innerHTML='<span>È disponibile una nuova versione dell’app.</span><button type="button" style="background:#F3E63F;color:#1b1606;border:0;border-radius:8px;padding:8px 12px;font-weight:700">Aggiorna ora</button>';
+    bar.querySelector('button').onclick=()=>location.reload();document.body.append(bar);
   }catch(e){}
 }
 const LS='taccuino-us:v1'+(STANDALONE&&API.url?':'+hashStr(API.url):'');
@@ -1671,7 +1691,7 @@ function renderScheda(){
   const sect=SCHEMA[r.tipo];
   const fieldHtml=f=>{
     const val=esc(shown(r,f.k));const cls=`c${f.s}${f.s===3?' pair':''}`;const pd=pendVal(r,f.k)!==undefined;
-    const rq=REQ_FIELDS(r.tipo).has(f.k)?'<span class="req" title="Obbligatorio">*</span>':'';
+    const rq=REQ_FIELDS(r).has(f.k)?'<span class="req" title="Obbligatorio">*</span>':'';
     const mq=reqShow===r.id&&missingReq(r).some(q=>(q.f||[]).includes(f.k));
     const tag=rq+(pd?'<span class="pendtag">da validare</span>':'');const pc=pd||mq?`class="${pd?'ispend':''} ${mq?'reqmiss':''}"`:'';
     let ctl;
@@ -1731,7 +1751,7 @@ function collect(r){
 }
 function bindScheda(r){
   const m=$('#main');
-  const commit=()=>{if(!canWrite)return;const before=JSON.stringify(r.pend||{});collect(r);autoDesc(r);const back=checkStato(r);saveRec(r);if(back||reqShow===r.id)refreshSaveBar(r);if(JSON.stringify(r.pend||{})!==before){markPendUI(r)}const s=$('#savestate');if(s)s.textContent=db&&navigator.onLine?'Salvata':'Salvata sul dispositivo'};
+  const commit=()=>{if(!canWrite)return;const before=JSON.stringify(r.pend||{});collect(r);autoDesc(r);const back=checkStato(r);saveRec(r);refreshSaveBar(r);if(JSON.stringify(r.pend||{})!==before){markPendUI(r)}const s=$('#savestate');if(s)s.textContent=db&&navigator.onLine?'Salvata':'Salvata sul dispositivo'};
   m.querySelectorAll('[data-k]').forEach(el=>{el.addEventListener('focus',()=>{el.dataset.prev=el.value});el.addEventListener('input',()=>{const s=$('#savestate');if(s)s.textContent='Modifiche in corso…';clearTimeout(saveT);saveT=setTimeout(commit,700)});el.addEventListener('change',()=>{clearTimeout(saveT);const k=el.dataset.k;const st=standardize(k,el.value,r.tipo);if(st.value!==el.value)el.value=st.value;
     commit();learnVocab(k,el.value,r.tipo,[...st.sugg.map(s=>s.from),...tokens(el.dataset.prev||'')]);el.dataset.prev=el.value;showHint(r,k,st.sugg);if(pickOpen===k)renderPicker()})});
   const num=$('#f-numero');num.onchange=()=>{
@@ -1824,9 +1844,12 @@ const REQ={
   USM:[{id:'numero',l:'Numero'},{id:'definizione',l:'Definizione',f:['definizione']},{id:'tecnica',l:'Tecnica costruttiva',f:['tecnica']},
       {id:'_mat',l:'Materiali (almeno uno)',f:['lat_materiali','lit_materiali','materialiAltro'],any:true},{id:'_leg',l:'Legante',f:['leg_tipo','leg_componenti'],any:true},
       {id:'_seq',l:'Sequenza fisica (almeno un rapporto)'},{id:'descrizione',l:'Descrizione',f:['descrizione']}]};
-const REQ_FIELDS=t=>new Set(REQ[t].flatMap(q=>q.f||[]));
+/* US negativa (taglio): non ha matrice, quindi colore, consistenza e componenti non sono obbligatori */
+const NEG_SKIP=new Set(['_comp','colore','consistenza']);
+function reqOf(r){const l=REQ[r.tipo];return r.tipo==='US'&&kindOf(r)==='negativa'?l.filter(q=>!NEG_SKIP.has(q.id)):l}
+const REQ_FIELDS=r=>new Set(reqOf(r).flatMap(q=>q.f||[]));
 function missingReq(r){
-  return REQ[r.tipo].filter(q=>{
+  return reqOf(r).filter(q=>{
     if(q.id==='numero'){const n=pendVal(r,'_numero')??r.numero;return !String(n||'').trim()||recsOf(r.scavo).filter(x=>x.numero===n).length>1}
     if(q.id==='_seq')return !RELS.some(([k])=>shownRel(r,k).length);
     const ok=q.f.map(k=>String(shown(r,k)).trim()!=='');return q.any?!ok.some(Boolean):!ok.every(Boolean);
@@ -1846,10 +1869,12 @@ function saveBarHtml(r){
 }
 function refreshSaveBar(r){const old=document.querySelector('.savebar');if(!old)return;const t=document.createElement('div');t.innerHTML=saveBarHtml(r);old.replaceWith(t.firstElementChild||t);
   const miss=missingReq(r);document.querySelectorAll('#main [data-k]').forEach(el=>el.classList.toggle('reqmiss',reqShow===r.id&&miss.some(q=>(q.f||[]).includes(el.dataset.k))));
+  const rf=REQ_FIELDS(r);document.querySelectorAll('#main [data-k]').forEach(el=>{const f=el.closest('.f');const lab=f&&(f.querySelector('.lab')||f.querySelector(':scope>span'));if(!lab)return;
+    const star=lab.querySelector('.req');if(rf.has(el.dataset.k)&&!star){const sp=document.createElement('span');sp.className='req';sp.title='Obbligatorio';sp.textContent='*';const pt=lab.querySelector('.pendtag');pt?lab.insertBefore(sp,pt):lab.append(sp)}else if(!rf.has(el.dataset.k)&&star)star.remove()});
   const st=document.querySelector('.sch-head .stato');if(st){st.className='stato '+(r.stato==='completa'?'completa':'bozza');st.textContent=r.stato==='completa'?'Completa':'Da completare'}
   bindSaveBar(r);}
 function focusReq(r,id){
-  const q=REQ[r.tipo].find(x=>x.id===id);if(!q)return;
+  const q=reqOf(r).find(x=>x.id===id);if(!q)return;
   const el=id==='_seq'?document.querySelector('[data-rel="copre"]'):id==='numero'?$('#f-numero'):$('#f-'+q.f[0]);
   if(!el)return;const d=el.closest('details');if(d)d.open=true;el.scrollIntoView({block:'center',behavior:'smooth'});setTimeout(()=>el.focus({preventScroll:true}),250);
 }

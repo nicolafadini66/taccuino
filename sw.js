@@ -1,5 +1,5 @@
 /* Taccuino di scavo — funzionamento offline: l'app e le librerie restano sul dispositivo */
-const VERSIONE = 'taccuino-v1';
+const VERSIONE = 'taccuino-v3';
 const BASE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
 const ESTERNI = ['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'];
 
@@ -24,7 +24,7 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;                                   // le chiamate all'archivio passano sempre dalla rete
   if (/script\.google(usercontent)?\.com$/.test(url.hostname)) return;
   if (req.mode === 'navigate') {                                       // pagina: rete se c'è, altrimenti la copia salvata
-    e.respondWith(fetch(req).then(r => { const cp = r.clone(); caches.open(VERSIONE).then(c => c.put('./index.html', cp)); return r; })
+    e.respondWith(fetch(new Request(url.href, { cache: 'no-store', credentials: 'same-origin' })).then(r => { const cp = r.clone(); caches.open(VERSIONE).then(c => c.put('./index.html', cp)); return r; })
       .catch(() => caches.match('./index.html')));
     return;
   }
