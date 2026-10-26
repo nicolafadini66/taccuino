@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <script>window.TACCUINO_ARCHIVIO="https://script.google.com/macros/s/AKfycbzkUhOcQu30D9b6zGMEXKELU37J30rlg7SYTvGE673U4pbE42D3472zPMwLR7anJYTWCg/exec";</script>
-<script>window.TACCUINO_BUILD="26/10/2026 15:09";</script>
+<script>window.TACCUINO_BUILD="26/10/2026 16:44";</script>
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -1444,14 +1444,19 @@ const propsFor=vk=>Object.values(S.prop).filter(p=>p.vk===vk).map(p=>p.value);
 function approveProp(p){const l=vocabList(p.vk);if(!l.some(x=>nrm(x)===nrm(p.value)))setVocab(p.vk,[...l,p.value]);delete S.prop[p.id];enqueue('proposte/'+p.id,null,true)}
 function rejectProp(p){delete S.prop[p.id];enqueue('proposte/'+p.id,null,true)}
 function addVoce(vk,v){const l=vocabList(vk);if(!l.some(x=>nrm(x)===nrm(v)))setVocab(vk,[...l,v])}
-function nextNum(){const nums=recsOf(S.cur).map(r=>parseInt(r.numero,10)).filter(n=>!isNaN(n));return String(nums.length?Math.max(...nums)+1:1)}
+/* primo numero libero: il più basso non ancora usato da una scheda né citato nei rapporti (es. USM 9 tagliata da USM 15 → il prossimo è 10, non 16) */
+function usedNums(){const used=new Set();
+  recsOf(S.cur).forEach(r=>{const n=parseInt(r.numero,10);if(!isNaN(n))used.add(n);
+    Object.values(r.rel||{}).forEach(l=>(l||[]).forEach(x=>{const m=parseInt(x,10);if(!isNaN(m))used.add(m)}))});
+  return used}
+function nextNum(){const used=usedNums();let n=1;while(used.has(n))n++;return String(n)}
 /* Prenota il primo numero libero sull'archivio condiviso, così due persone non prendono lo stesso numero */
 async function reserveNum(recId){
   let n=parseInt(nextNum(),10);
   if(!db||!navigator.onLine)return{num:String(n),provv:true};
   try{
     for(let i=0;i<30;i++,n++){
-      if(findNum(String(n)))continue;
+      if(findNum(String(n))||usedNums().has(n))continue;
       const ref=db.doc(`numeri/${S.cur}-${n}`);
       const a=await ref.acquire({holder:myId||recId,ttlMs:8000});
       if(!a.acquired)continue;
