@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <script>window.TACCUINO_ARCHIVIO="https://script.google.com/macros/s/AKfycbzkUhOcQu30D9b6zGMEXKELU37J30rlg7SYTvGE673U4pbE42D3472zPMwLR7anJYTWCg/exec";</script>
-<script>window.TACCUINO_BUILD="26/10/2026 14:38";</script>
+<script>window.TACCUINO_BUILD="26/10/2026 14:50";</script>
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -1218,7 +1218,7 @@ function respPanel(sc){
         return dr?`<button class="primary" id="arcDrive">Salva su “${esc(sc.dest.nome)}”</button><button id="arcDev">Scegli dove salvare</button>`
           :`<button class="primary" id="arcDev">${sc.dest&&sc.dest.ownerId===myId?`Salva (scegli “${esc(sc.dest.nome)}”)`:'Scegli dove salvare'}</button>${mcp?'<button id="arcDrive">Direttamente sul Google Drive collegato</button>':''}`})()}</div>`}
       <p class="note" style="margin:0"><b>Scegli dove salvare</b> apre la finestra di salvataggio del dispositivo: da iPhone e iPad scegli iCloud Drive oppure l’app Google Drive con l’account che vuoi; da Android scegli Drive (con l’account che vuoi) o la memoria del tablet; dal computer qualsiasi cartella, anche su un disco esterno.</p>
-      ${STANDALONE?`<div class="note" style="margin:0"><b>Cartella dello scavo:</b> “${esc(folderName(sc))}”, con le sottocartelle Schede PDF, Dati e Foto, accanto al Foglio dell’archivio sul Drive del responsabile. Le foto ci finiscono già al caricamento; le schede in PDF quando vengono salvate come complete.</div>
+      ${STANDALONE?`<div class="note" style="margin:0"><b>Cartella dello scavo:</b> “${esc(folderName(sc))}”, con le sottocartelle “${esc(pdfFolderName(sc))}” (i PDF), Dati e Foto, accanto al Foglio dell’archivio sul Drive del responsabile. Le foto ci finiscono già al caricamento; le schede in PDF quando vengono salvate come complete.</div>
       <div class="exp"><button class="primary" id="arcSheet">Salva nella cartella dello scavo</button><button id="arcDev">Scegli dove salvare (iCloud, altro Drive, disco)</button></div>`:`
       <div class="note" style="margin:0"><b>Destinazione di questo scavo:</b> ${sc.dest&&sc.dest.ownerId===myId?esc(destLabel(sc.dest)):'non ancora scelta'}${sc.dest?.tipo==='dispositivo'?` — alla finestra di salvataggio scegli “${esc(sc.dest.nome)}”.`:''}</div>
       <details><summary class="note" style="cursor:pointer">Cambia destinazione</summary>${destPicker('dr',sc.dest&&sc.dest.ownerId===myId?sc.dest:null)}<button id="drGo" style="margin-top:8px">Usa questa destinazione</button></details>
@@ -1269,7 +1269,7 @@ async function buildArchive(sc,{what,foto},msg){
   if(dati)files.push({name:'dati/scavo.json',data:JSON.stringify(sc,null,1)},{name:'dati/schede.json',data:JSON.stringify(rs,null,1)},{name:'dati/elenchi.json',data:JSON.stringify(S.vocab||{},null,1)},
     {name:'Elenco_US.xlsx',data:buildXlsx(rs,sc)},{name:'Elenco_US.csv',data:buildCsv(rs,sc)});
   if(pdf){try{let i=0;for(const r of rs){msg(`Preparo i PDF (${++i}/${rs.length})…`);const bl=await buildPdf([r],sc,false);
-      files.push({name:`PDF/Scheda_${KIND[kindOf(r)].nome.replace(/[^A-Za-z]+/g,'_').replace(/_+$/,'')}_${safe(r.numero)}${r.stato==='completa'?'':'_BOZZA'}.pdf`,data:new Uint8Array(await bl.arrayBuffer())})}}
+      files.push({name:`PDF/${pdfName(r)}`,data:new Uint8Array(await bl.arrayBuffer())})}}
     catch(e){if(!dati)throw new Error('i PDF richiedono la connessione la prima volta che si generano su questo dispositivo');note.push('PDF non inclusi: servono la connessione la prima volta che si generano.')}}
   if(foto){let n=0;for(const r of rs)for(const [i,id] of (r.foto_ids||[]).entries()){try{msg(`Raccolgo le foto (${++n})…`);const bl=await getPhotoBlob(id);
       files.push({name:`foto/${r.tipo}_${safe(r.numero)}_${i+1}.${/png/.test(bl.type)?'png':'jpg'}`,data:new Uint8Array(await bl.arrayBuffer())})}catch(e){note.push(`Foto ${i+1} della ${r.tipo} ${r.numero} non scaricata.`)}}}
@@ -1277,11 +1277,18 @@ async function buildArchive(sc,{what,foto},msg){
   const lab=what==='pdf'?'Schede_PDF':what==='dati'?'Dati':'Archivio';
   return{zip:zipStore(files),note,name:`${lab}_${safe(sc.nome||sc.localita)}_${stamp.toISOString().slice(0,16).replace(/[-:T]/g,'')}.zip`};
 }
-function pdfName(r){return `Scheda_${KIND[kindOf(r)].nome.replace(/[^A-Za-z]+/g,'_').replace(/_+$/,'')}_${safe(r.numero)}${r.stato==='completa'?'':'_BOZZA'}.pdf`}
+/* più schede in un file: "US 1-15" (dal primo all'ultimo numero); "USM" se sono tutte USM */
+function pdfNameMany(l,ext='pdf'){if(l.length===1)return pdfName(l[0]).replace(/pdf$/,ext);
+  const ns=l.map(r=>String(r.numero||'').trim()).filter(Boolean).sort((a,b)=>(parseFloat(a)||0)-(parseFloat(b)||0)||a.localeCompare(b,'it',{numeric:true}));
+  const pre=l.every(r=>r.tipo==='USM')?'USM':'US',cl=x=>x.replace(/[\\/:*?"<>|#%]+/g,'-');
+  return `${pre} ${ns.length?cl(ns[0])+(ns.length>1?'-'+cl(ns[ns.length-1]):''):'senza numero'}.${ext}`}
+/* nome dei PDF: semplicemente "US 12.pdf" oppure "USM 5.pdf" */
+function pdfName(r){const n=String(r.numero||'').trim().replace(/[\\/:*?"<>|#%]+/g,'-')||'senza numero';return `${r.tipo==='USM'?'USM':'US'} ${n}.pdf`}
 async function uploadPdf(sc,r){const bl=await buildPdf([r],sc,false);
   return api('saveFile',{scavo:sc.id,kind:'pdf',name:pdfName(r),base64:b64(new Uint8Array(await bl.arrayBuffer())),mime:'application/pdf'})}
 function markArchived(sc,dove,what){if(what&&what!=='tutto'&&what!=='dati')return; /* l'archivio dei dati è quello che conta per il ripristino */
   sc.archivio={at:Date.now(),dove,byId:myId||null};saveScavo(sc)}
+function pdfFolderName(sc){return (String(sc.nome||'').trim()||folderName(sc))+' - schede US'}
 function folderName(sc){const loc=String(sc.localita||'').trim(),nome=String(sc.nome||'').trim();
   if(loc&&nome&&nome.toLowerCase().startsWith(loc.toLowerCase()))return nome;return [loc,nome].filter(Boolean).join(' – ')||'Scavo'}
 async function driveFolder(sc){
@@ -1315,7 +1322,7 @@ function bindRespPanel(sc){
           ['elenchi.json',JSON.stringify(S.vocab||{},null,1),'application/json'],['Elenco_US.csv',buildCsv(rs,sc),'text/csv'],['Elenco_US.xlsx',buildXlsx(rs,sc),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']];
         let last=null;for(const [name,data,mime] of files){const u8=typeof data==='string'?new TextEncoder().encode(data):data;last=await api('saveFile',{scavo:sc.id,kind:'dati',name,base64:b64(u8),mime})}
         markArchived(sc,'cartella',w);renderScavo();msgHtml(`Salvato nella cartella “${esc(folderName(sc))}”.${last?.cartella?` <a href="${esc(last.cartella)}" target="_blank" rel="noopener">Apri la cartella Dati</a>`:''}`);return}
-      msg(`PDF salvati nella cartella “${folderName(sc)}/Schede PDF”.`);
+      msg(`PDF salvati nella cartella “${folderName(sc)} / ${pdfFolderName(sc)}”.`);
     }catch(e){msg(e.message==='offline'?'I PDF richiedono la connessione la prima volta che si generano.':'Salvataggio non riuscito: '+e.message)}finally{busy=false}});
   b('arcDrive',async()=>{if(busy)return;busy=true;try{
       const a=await buildArchive(sc,opts(),msg);
@@ -1565,7 +1572,7 @@ async function exportPdf(recs,sc,blank,name){
   try{toast('Preparo il PDF…');const b=await buildPdf(recs,sc,blank);
     if(STANDALONE&&!blank&&sc){
       const dn=recs.length===1?pdfName(recs[0]):name;
-      try{const res=await pdfToDrive(sc,b,dn);if(res){$('#toast').hidden=true;savedBar(`PDF salvato su Drive in “${folderName(sc)} / Schede PDF”.`,res.cartella,()=>offerFile(name,b));return}}
+      try{const res=await pdfToDrive(sc,b,dn);if(res){$('#toast').hidden=true;savedBar(`PDF salvato su Drive in “${folderName(sc)} / ${res.nomeCartella||pdfFolderName(sc)}”.`,res.cartella,()=>offerFile(name,b));return}}
       catch(e){toast(e.code==='unavailable'||!navigator.onLine?'Senza connessione non posso salvarlo su Drive: lo salvi sul dispositivo.':'Salvataggio su Drive non riuscito: '+e.message)}
     }
     await offerFile(name,b)}
@@ -1801,7 +1808,7 @@ function bindScheda(r){
   $('#prev').onclick=()=>{S.open=rs[i-1].id;ocrState=null;persist();renderScheda()};
   $('#next').onclick=()=>{S.open=rs[i+1].id;ocrState=null;persist();renderScheda()};
   $('#xPrev').onclick=()=>openPreview(r,false);
-  $('#xPdf').onclick=()=>exportPdf([r],curScavo(),false,`Scheda_${r.tipo}_${safe(r.numero)}.pdf`);
+  $('#xPdf').onclick=()=>exportPdf([r],curScavo(),false,pdfName(r));
   const del=$('#del');if(del)del.onclick=()=>{$('#confirmBox').innerHTML=`<div class="confirm">Eliminare la scheda ${esc(r.tipo)} ${esc(r.numero)}? I rapporti che la citano nelle altre schede resteranno da correggere. <button class="danger" id="delYes">Elimina</button><button class="ghost" id="delNo">Annulla</button></div>`;
     $('#delNo').onclick=()=>$('#confirmBox').innerHTML='';$('#delYes').onclick=()=>{if(needsVal('_delete')){markPend(r,'_delete',true);saveRec(r);toast('Richiesta di eliminazione inviata al responsabile scientifico');renderScheda();return}delete S.records[r.id];enqueue(`us/${r.id}`,null,true);S.open=null;toast(`Scheda ${r.numero} eliminata`);go('elenco')}};
   ['cam','gal'].forEach(id=>{const el=$('#'+id);if(el)el.onchange=async()=>{for(const f of el.files)await addPhoto(r,f);el.value=''}});
@@ -1942,7 +1949,7 @@ function openPreview(r,toSave){
     <div class="ov-foot"><button id="ovBack">${toSave?'Torna a modificare':'Chiudi'}</button><button id="ovPdf">${STANDALONE?'Salva il PDF':'Scarica il PDF'}</button>${toSave?'<button class="primary" id="ovSave">Conferma e salva</button>':''}</div>`;
   o.hidden=false;document.body.style.overflow='hidden';
   $('#ovBack').onclick=closePreview;$('#ovBack').focus();
-  $('#ovPdf').onclick=()=>exportPdf([prov],sc,false,`Scheda_${r.tipo}_${safe(r.numero)}.pdf`);
+  $('#ovPdf').onclick=()=>exportPdf([prov],sc,false,pdfName(prov));
   const sv=$('#ovSave');if(sv)sv.onclick=()=>{closePreview();completeRec(r)};
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#ov').hidden)closePreview()});
@@ -2217,7 +2224,7 @@ function renderScavo(){
     <button id="logout" style="align-self:flex-start">Esci</button></section>`
   :`<section class="panel"><h3>Il tuo nome</h3><p class="note">È legato al tuo account: compare sulle schede, nello storico e nell’elenco come compilatore.</p>
     <label class="f"><span>Nome</span><input id="me" value="${esc(S.me)}" placeholder="es. N. Fadini"></label></section>`}
-  ${canWrite&&isSocio()?`<section class="panel"><h3>Nuovo scavo</h3>${form({anno:String(new Date().getFullYear())},'ns')}${STANDALONE?'<p class="note" style="margin:0">Schede PDF, dati e foto vanno nella cartella “Località – Scavo” accanto al Foglio dell’archivio, sul Drive del responsabile.</p>':destPicker('dn',null)}
+  ${canWrite&&isSocio()?`<section class="panel"><h3>Nuovo scavo</h3>${form({anno:String(new Date().getFullYear())},'ns')}${STANDALONE?'<p class="note" style="margin:0">I PDF vanno nella cartella “Nome scavo - schede US”, dentro la cartella “Località – Scavo” con Dati e Foto, accanto al Foglio dell’archivio sul Drive del responsabile.</p>':destPicker('dn',null)}
     <p class="note" style="margin:0">Chi crea lo scavo ne diventa il responsabile di cantiere; potrà passare il ruolo a un altro socio.</p>
     <button class="primary" id="nsGo" style="align-self:flex-start">Crea lo scavo</button></section>`:''}
   </div>`;
@@ -2231,12 +2238,12 @@ function renderScavo(){
   b('eXlsx',()=>offerFile(`Elenco_US_${nm(sc)}.xlsx`,buildXlsx(rs,sc)));
   b('eCsv',()=>offerFile(`Elenco_US_${nm(sc)}.csv`,buildCsv(rs,sc)));
   const sel=()=>{const all=$('#inclBozze')?.checked;const l=rs.filter(r=>all||r.stato==='completa');if(!l.length)toast('Nessuna scheda completa da esportare: completa le schede o includi quelle da completare.');return l};
-  b('ePdf',()=>{const l=sel();if(l.length)exportPdf(l,sc,false,`Schede_${nm(sc)}.pdf`)});
+  b('ePdf',()=>{const l=sel();if(l.length)exportPdf(l,sc,false,pdfNameMany(l))});
   b('ePdfZip',async()=>{const l=sel();if(!l.length)return;
-    try{toast(`Preparo ${l.length} PDF…`);const files=[];for(const r of l){const bl=await buildPdf([r],sc,false);files.push({name:`Scheda_${r.tipo}_${safe(r.numero)}.pdf`,data:new Uint8Array(await bl.arrayBuffer())})}
-      const zip=new Blob([zipStore(files)]),zname=`Schede_${nm(sc)}.zip`;
+    try{toast(`Preparo ${l.length} PDF…`);const files=[];for(const r of l){const bl=await buildPdf([r],sc,false);files.push({name:pdfName(r),data:new Uint8Array(await bl.arrayBuffer())})}
+      const zip=new Blob([zipStore(files)]),zname=pdfNameMany(l,'zip');
       if(STANDALONE&&navigator.onLine){try{let res=null,i=0;for(const r of l){toast(`Salvo su Drive (${++i}/${l.length})…`);const bl=await buildPdf([r],sc,false);res=await pdfToDrive(sc,bl,pdfName(r))}
-          $('#toast').hidden=true;savedBar(`${l.length} PDF salvati su Drive in “${folderName(sc)} / Schede PDF”.`,res?.cartella,()=>offerFile(zname,zip));return}
+          $('#toast').hidden=true;savedBar(`${l.length} PDF salvati su Drive in “${folderName(sc)} / ${res?.nomeCartella||pdfFolderName(sc)}”.`,res?.cartella,()=>offerFile(zname,zip));return}
         catch(e){toast('Salvataggio su Drive non riuscito: '+e.message)}}
       await offerFile(zname,zip)}
     catch(e){toast(e.message==='offline'?'I PDF richiedono la connessione la prima volta.':'Esportazione non riuscita: '+e.message)}});
