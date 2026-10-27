@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <script>window.TACCUINO_ARCHIVIO="https://script.google.com/macros/s/AKfycbzkUhOcQu30D9b6zGMEXKELU37J30rlg7SYTvGE673U4pbE42D3472zPMwLR7anJYTWCg/exec";</script>
-<script>window.TACCUINO_BUILD="26/10/2026 16:44";</script>
+<script>window.TACCUINO_BUILD="27/10/2026 07:38";</script>
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -165,6 +165,9 @@ table.grid{border-collapse:collapse;width:100%;min-width:980px;font-size:14px}
 /* Scheda */
 .sch-head{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:14px}
 .bignum{font-family:var(--f-mono);font-size:34px;font-weight:600;line-height:1}
+.pagetabs{display:flex;gap:6px;margin:0 0 12px;border-bottom:1px solid var(--line)}
+.pagetabs button{background:transparent;border:0;border-bottom:3px solid transparent;border-radius:0;padding:10px 14px;font-weight:600;color:var(--muted)}
+.pagetabs button[aria-selected="true"]{color:inherit;border-bottom-color:var(--kc,#1B221F)}
 .sec{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:12px}
 .sec>summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;align-items:center;gap:10px}
 .sec>summary::-webkit-details-marker{display:none}
@@ -172,8 +175,8 @@ table.grid{border-collapse:collapse;width:100%;min-width:980px;font-size:14px}
 .sec[open]>summary::after{content:"–"}
 .sec>summary .done{font-size:12px;color:var(--muted);font-family:var(--f-mono)}
 .fields{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px;padding:2px 14px 16px}
-.c12{grid-column:span 12}.c6{grid-column:span 6}.c4{grid-column:span 4}.c3{grid-column:span 3}
-@media (max-width:720px){.c6,.c4,.c3{grid-column:span 12}.c3.pair{grid-column:span 6}}
+.c12{grid-column:span 12}.c8{grid-column:span 8}.c6{grid-column:span 6}.c4{grid-column:span 4}.c3{grid-column:span 3}
+@media (max-width:720px){.c8,.c6,.c4,.c3{grid-column:span 12}.c3.pair{grid-column:span 6}}
 .relgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;padding:2px 14px 16px}
 @media (max-width:520px){.relgrid{grid-template-columns:1fr}}
 .relgrid input{font-family:var(--f-mono)}
@@ -210,6 +213,7 @@ table.grid{border-collapse:collapse;width:100%;min-width:980px;font-size:14px}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
 .panel .fields{padding:0}
+.panel{container-type:inline-size}@container (max-width:520px){.panel .fields>.c8,.panel .fields>.c6,.panel .fields>.c4{grid-column:span 12}}
 .exp{display:flex;flex-wrap:wrap;gap:8px}
 .note{font-size:14px;color:var(--muted)}
 
@@ -306,6 +310,15 @@ const SCHEMA={
   {t:'Appunti cartacei',photos:true}]
 };
 const allFields=tipo=>SCHEMA[tipo].flatMap(s=>s.f||[]);
+/* Voci principali: quelle che si compilano sempre, nella prima pagina della scheda. Il resto va in "Altri dati". */
+const ESS={positiva:['ambiente','definizione','geologici','organici','artificiali','colore','consistenza','misure','elementiDatanti','interpretazione'],
+  negativa:['ambiente','definizione','forma','pareti','fondo','orientamento','misure','interpretazione'],
+  struttura:['ambiente','definizione','orientamento','misure','tecnica','modulo','lat_materiali','lit_materiali','materialiAltro','leg_tipo','leg_colore','leg_consistenza','leg_componenti','interpretazione']};
+const ESS_LABEL={ambiente:'Ambiente / vano',lat_materiali:'Laterizi: materiali',lit_materiali:'Elementi litici: materiali',materialiAltro:'Altri materiali',leg_tipo:'Legante: tipo',leg_colore:'Legante: colore',leg_consistenza:'Legante: consistenza',leg_componenti:'Legante: componenti',modulo:'Modulo dei laterizi'};
+const ESS_SPAN={ambiente:6,definizione:6,interpretazione:12,elementiDatanti:12,tecnica:12,geologici:4,organici:4,artificiali:4,colore:4,consistenza:4,misure:4,forma:4,pareti:4,fondo:4,orientamento:6,
+  modulo:6,lat_materiali:6,lit_materiali:6,materialiAltro:12,leg_tipo:6,leg_colore:6,leg_consistenza:6,leg_componenti:6};
+function essKeys(r){return ESS[kindOf(r)]||[]}
+let schPage={id:null,p:1};
 
 function normNum(s){return String(s||'').trim().replace(/^usm?\s*/i,'').toUpperCase()}
 function parseNums(str){
@@ -1738,6 +1751,25 @@ function renderScheda(){
     return `<label class="f ${cls}"><span>${f.l}${tag}</span>${ctl}</label>`;
   };
   const filled=s=>s.f?`${s.f.filter(f=>String(r[f.k]||'').trim()).length}/${s.f.length}`:s.rel?`${RELS.filter(([k])=>(r.rel?.[k]||[]).length).length} rapporti`:`${(r.foto_ids||[]).length} foto`;
+  const pg=schPage.id===r.id?schPage.p:1;schPage={id:r.id,p:pg};
+  const ek=essKeys(r),all=allFields(r.tipo);
+  const essF=ek.map(k=>all.find(f=>f.k===k)).filter(Boolean).map(f=>({...f,l:ESS_LABEL[f.k]||f.l,s:ESS_SPAN[f.k]||f.s}));
+  const pg1Sects=[{t:'Voci principali',f:essF},...sect.filter(x=>x.desc||x.rel)];
+  const pg2Sects=sect.filter(x=>!x.desc&&!x.rel).map(x=>x.f?{...x,f:x.f.filter(f=>!ek.includes(f.k))}:x).filter(x=>!x.f||x.f.length);
+  const others=pg2Sects.flatMap(x=>x.f||[]),otherTot=others.length,otherFilled=others.filter(f=>String(shown(r,f.k)||'').trim()).length;
+  const pageTabs=`<div class="pagetabs" role="tablist" aria-label="Pagine della scheda"><button type="button" role="tab" data-gopage="1" aria-selected="${pg===1}">Voci principali</button><button type="button" role="tab" data-gopage="2" aria-selected="${pg===2}">Altri dati <span class="muted small">${otherFilled}/${otherTot}</span></button></div>`;
+  const quickHtml=canWrite?`<section class="quick" aria-labelledby="qTitle"><div class="row"><h3 id="qTitle">Descrizione rapida</h3><span class="muted small">Scrivi o detta col microfono della tastiera: la scompongo nei campi della scheda.</span></div>
+    <textarea id="quickTxt" spellcheck="true" placeholder="es. Strato di argilla sabbiosa marrone scuro, consistenza molto compatta. Contiene pezzame laterizio, carboni e piccoli frammenti ceramici. Probabile piano d’uso romano. Copre 2, coperto da 3.">${esc(quickState?.id===r.id?quickState.text:'')}</textarea>
+    <div class="row"><button class="primary" id="quickGo">Scomponi nei campi</button><span class="muted small">Prima di applicare ti mostro cosa ho capito.</span></div>
+    <div id="quickRev">${quickRevHtml(r)}</div></section>`:'';
+  const sectHtml=(list,base)=>list.map((s,i)=>`<details class="sec" open data-sec="${base+i}"><summary><h3>${s.t}${s.req?'<span class="req" title="Almeno un rapporto obbligatorio">*</span>':''}</h3><span class="done">${filled(s)}</span></summary>
+    ${s.desc&&canWrite?`<div class="pk-add" style="padding:0 14px 4px"><label class="chk"><input type="checkbox" id="descAuto" ${descAuto(r)?'checked':''}> Componi la descrizione dai campi della scheda</label><span class="spacer"></span><button type="button" id="descRegen">Rigenera ora</button></div>
+      <p class="note" style="margin:0;padding:0 14px 6px">Usa definizione, componenti, colore, consistenza, ${r.tipo==='USM'?'tecnica, materiali e legante':'forma, organici, artificiali ed elementi datanti'}. Se la modifichi a mano, la composizione automatica si ferma.</p>`:''}
+    ${s.f?`<div class="fields">${s.f.map(fieldHtml).join('')}</div>`:''}
+    ${s.rel?`<div class="relgrid">${RELS.map(([k,l])=>`<label class="f"><span>${l}${r.pend?.['rel:'+k]?'<span class="pendtag">da validare</span>':''}</span><input data-rel="${k}" ${r.pend?.['rel:'+k]?'class="ispend"':''} value="${esc(joinNums(shownRel(r,k)))}" placeholder="es. 4, 7" ${ro} inputmode="text"></label>`).join('')}
+      <div class="derived"><span><b>Posteriore a</b> <code>${esc(joinNums(relList(r,POST)))||'—'}</code></span><span><b>Anteriore a</b> <code>${esc(joinNums(relList(r,ANTE)))||'—'}</code></span><span class="muted small">Il rapporto inverso viene scritto anche sull’altra scheda.</span></div>${relNoticeHtml(r)}</div>`:''}
+    ${s.photos?photoHtml(r):''}
+  </details>`).join('');
   m.innerHTML=`${roBanner()}
   <datalist id="defUS">${DEF_US.map(d=>`<option value="${esc(d)}">`).join('')}</datalist><datalist id="defUSM">${DEF_USM.map(d=>`<option value="${esc(d)}">`).join('')}</datalist>
   <div class="sch-head">
@@ -1752,19 +1784,17 @@ function renderScheda(){
   </div>
   ${r.pend&&Object.keys(r.pend).length?`<div class="banner">${isOwnerV?`Questa scheda ha ${Object.keys(r.pend).length} modifiche proposte dai collaboratori. <button class="ghost" id="goVal">Vai a Da validare</button>`:`Le modifiche evidenziate sono in attesa di validazione da parte del responsabile scientifico. Le esportazioni usano i valori già validati.`}${r.pend._delete?' È stata chiesta l’eliminazione della scheda.':''}</div>`:''}
   <div id="spell" class="ocr" style="margin:0 0 12px" hidden></div>
-  ${canWrite?`<section class="quick" aria-labelledby="qTitle"><div class="row"><h3 id="qTitle">Descrizione rapida</h3><span class="muted small">Scrivi o detta col microfono della tastiera: la scompongo nei campi della scheda.</span></div>
-    <textarea id="quickTxt" spellcheck="true" placeholder="es. Strato di argilla sabbiosa marrone scuro, consistenza molto compatta. Contiene pezzame laterizio, carboni e piccoli frammenti ceramici. Probabile piano d’uso romano. Copre 2, coperto da 3.">${esc(quickState?.id===r.id?quickState.text:'')}</textarea>
-    <div class="row"><button class="primary" id="quickGo">Scomponi nei campi</button><span class="muted small">Prima di applicare ti mostro cosa ho capito.</span></div>
-    <div id="quickRev">${quickRevHtml(r)}</div></section>`:''}
-  ${sect.map((s,i)=>`<details class="sec" ${i<5||s.rel?'open':''} data-sec="${i}"><summary><h3>${s.t}${s.req?'<span class="req" title="Almeno un rapporto obbligatorio">*</span>':''}</h3><span class="done">${filled(s)}</span></summary>
-    ${s.desc&&canWrite?`<div class="pk-add" style="padding:0 14px 4px"><label class="chk"><input type="checkbox" id="descAuto" ${descAuto(r)?'checked':''}> Componi la descrizione dai campi della scheda</label><span class="spacer"></span><button type="button" id="descRegen">Rigenera ora</button></div>
-      <p class="note" style="margin:0;padding:0 14px 6px">Usa definizione, componenti, colore, consistenza, ${r.tipo==='USM'?'tecnica, materiali e legante':'forma, organici, artificiali ed elementi datanti'}. Se la modifichi a mano, la composizione automatica si ferma.</p>`:''}
-    ${s.f?`<div class="fields">${s.f.map(fieldHtml).join('')}</div>`:''}
-    ${s.rel?`<div class="relgrid">${RELS.map(([k,l])=>`<label class="f"><span>${l}${r.pend?.['rel:'+k]?'<span class="pendtag">da validare</span>':''}</span><input data-rel="${k}" ${r.pend?.['rel:'+k]?'class="ispend"':''} value="${esc(joinNums(shownRel(r,k)))}" placeholder="es. 4, 7" ${ro} inputmode="text"></label>`).join('')}
-      <div class="derived"><span><b>Posteriore a</b> <code>${esc(joinNums(relList(r,POST)))||'—'}</code></span><span><b>Anteriore a</b> <code>${esc(joinNums(relList(r,ANTE)))||'—'}</code></span><span class="muted small">Il rapporto inverso viene scritto anche sull’altra scheda.</span></div>${relNoticeHtml(r)}</div>`:''}
-    ${s.photos?photoHtml(r):''}
-  </details>`).join('')}
-  ${saveBarHtml(r)}
+${pageTabs}
+  <div id="pg1" ${pg===1?'':'hidden'}>
+  ${quickHtml}
+  ${sectHtml(pg1Sects,0)}
+  <div class="row" style="margin:4px 0 14px"><button type="button" class="ghost" data-gopage="2">Altri dati della scheda →</button><span class="muted small">${otherFilled} compilati su ${otherTot}</span></div>
+  </div>
+  <div id="pg2" ${pg===2?'':'hidden'}>
+  <div class="row" style="margin:0 0 12px"><button type="button" class="ghost" data-gopage="1">← Voci principali</button></div>
+  ${sectHtml(pg2Sects,100)}
+  </div>
+    ${saveBarHtml(r)}
   <details class="sec" style="margin-top:12px"><summary><h3>Storico delle modifiche</h3><span class="done">${(r.storia||[]).length} voci</span></summary>
     <div style="padding:0 14px 14px">${(r.storia||[]).length?(r.storia||[]).slice().reverse().map(h=>`<div class="vrow" style="padding:8px 0"><span class="t"><b>${esc(fieldLabel(r,h.k))}</b>${h.k==='_new'?` · ${esc(h.to)}`:`: ${h.from?`<s>${esc(h.from.length>120?h.from.slice(0,120)+'…':h.from)}</s> → `:''}${esc(h.to.length>160?h.to.slice(0,160)+'…':h.to)||'<i>vuoto</i>'}`}<br><span class="muted small">${new Date(h.at).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}${h.byName?' · '+esc(h.byName):''}</span></span></div>`).join(''):'<p class="muted small" style="margin:0">Le modifiche successive alla creazione compariranno qui, con data, autore, valore precedente e valore nuovo.</p>'}</div></details>
   ${canWrite?`<div class="row" style="margin-top:6px"><button class="danger" id="del">Elimina la scheda</button></div><div id="confirmBox"></div>`:''}`;
@@ -1786,9 +1816,10 @@ function collect(r){
 }
 function bindScheda(r){
   const m=$('#main');
+  m.querySelectorAll('[data-gopage]').forEach(b=>b.onclick=()=>{showPage(+b.dataset.gopage);window.scrollTo({top:0,behavior:'smooth'})});
   const commit=()=>{if(!canWrite)return;const before=JSON.stringify(r.pend||{});collect(r);autoDesc(r);const back=checkStato(r);saveRec(r);refreshSaveBar(r);if(JSON.stringify(r.pend||{})!==before){markPendUI(r)}const s=$('#savestate');if(s)s.textContent=db&&navigator.onLine?'Salvata':'Salvata sul dispositivo'};
   m.querySelectorAll('[data-k]').forEach(el=>{el.addEventListener('focus',()=>{el.dataset.prev=el.value});el.addEventListener('input',()=>{const s=$('#savestate');if(s)s.textContent='Modifiche in corso…';clearTimeout(saveT);saveT=setTimeout(commit,700)});el.addEventListener('change',()=>{clearTimeout(saveT);const k=el.dataset.k;const st=standardize(k,el.value,r.tipo);if(st.value!==el.value)el.value=st.value;
-    commit();learnVocab(k,el.value,r.tipo,[...st.sugg.map(s=>s.from),...tokens(el.dataset.prev||'')]);el.dataset.prev=el.value;showHint(r,k,st.sugg);if(pickOpen===k)renderPicker()})});
+    commit();if(k==='segno'){closePicker();renderScheda();return}learnVocab(k,el.value,r.tipo,[...st.sugg.map(s=>s.from),...tokens(el.dataset.prev||'')]);el.dataset.prev=el.value;showHint(r,k,st.sugg);if(pickOpen===k)renderPicker()})});
   const num=$('#f-numero');num.onchange=()=>{
     if(!normNum(num.value)){toast('Il numero è obbligatorio: non può restare vuoto.');num.value=pendVal(r,'_numero')??r.numero;return}
     if(needsVal('_numero')){const nn=normNum(num.value);if(nn===r.numero)clearPend(r,'_numero');else if(findNum(nn,r.scavo)){toast(`Il numero ${nn} è già usato in questo scavo.`);num.value=pendVal(r,'_numero')??r.numero;return}else markPend(r,'_numero',nn);saveRec(r);toast('Cambio di numero inviato per la validazione');renderScheda();return}
@@ -1908,10 +1939,12 @@ function refreshSaveBar(r){const old=document.querySelector('.savebar');if(!old)
     const star=lab.querySelector('.req');if(rf.has(el.dataset.k)&&!star){const sp=document.createElement('span');sp.className='req';sp.title='Obbligatorio';sp.textContent='*';const pt=lab.querySelector('.pendtag');pt?lab.insertBefore(sp,pt):lab.append(sp)}else if(!rf.has(el.dataset.k)&&star)star.remove()});
   const st=document.querySelector('.sch-head .stato');if(st){st.className='stato '+(r.stato==='completa'?'completa':'bozza');st.textContent=r.stato==='completa'?'Completa':'Da completare'}
   bindSaveBar(r);}
+function showPage(p){schPage.p=p;const a=$('#pg1'),b=$('#pg2');if(!a||!b)return;a.hidden=p!==1;b.hidden=p!==2;
+  document.querySelectorAll('.pagetabs [data-gopage]').forEach(t=>t.setAttribute('aria-selected',String(+t.dataset.gopage===p)))}
 function focusReq(r,id){
   const q=reqOf(r).find(x=>x.id===id);if(!q)return;
   const el=id==='_seq'?document.querySelector('[data-rel="copre"]'):id==='numero'?$('#f-numero'):$('#f-'+q.f[0]);
-  if(!el)return;const d=el.closest('details');if(d)d.open=true;el.scrollIntoView({block:'center',behavior:'smooth'});setTimeout(()=>el.focus({preventScroll:true}),250);
+  if(!el)return;if(el.closest('#pg2'))showPage(2);else if(el.closest('#pg1'))showPage(1);const d=el.closest('details');if(d)d.open=true;el.scrollIntoView({block:'center',behavior:'smooth'});setTimeout(()=>el.focus({preventScroll:true}),250);
 }
 function bindSaveBar(r){
   document.querySelectorAll('[data-goreq]').forEach(b=>b.onclick=()=>focusReq(r,b.dataset.goreq));
@@ -2205,14 +2238,19 @@ function renderControlli(){
 }
 
 /* ---- Scavo ed esporta ---- */
-const SCF=[['nome','Nome dello scavo',12],['ente','Ente responsabile',12],['ufficio','Ufficio MiC competente per tutela',12],['anno','Anno',4],['localita','Località',8],
-  ['area','Area / edificio / struttura',6],['saggio','Saggio',6],['identificativo','Identificativo del saggio / edificio / struttura di riferimento',12],['respScientifico','Responsabile scientifico delle indagini',12]];
+const SCF=[['nome','Nome dello scavo',12,'es. Ex IPSIA'],
+  ['localita','Località',8,'es. Ferrara','Il comune o la località: va in testa alle schede e nel nome della cartella su Drive.'],
+  ['anno','Anno',4,'es. 2026','Quello in corso; se lo scavo è di anni precedenti scrivi l’anno dello scavo.'],
+  ['area','Cantiere (area / edificio / struttura)',12,'es. Ex IPSIA – chiostro','Nelle schede va nella casella “Area / edificio / struttura”; è proposto per ogni nuova US.'],
+  ['saggio','Saggio',6,'es. Saggio 1'],['identificativo','Identificativo del saggio / edificio / struttura di riferimento',12],
+  ['ente','Ente responsabile',12,'Scegli o scrivi'],['ufficio','Ufficio MiC competente per tutela',12,'Scegli o scrivi'],
+  ['respScientifico','Responsabile scientifico delle indagini',12]];
 function renderScavo(){
   const m=$('#main');const sc=curScavo();const rs=sc?recsOf(sc.id):[];const ro=canWrite&&isSocio()?'':'readonly';
   const enti=[...new Set([...vocabList('ente'),...Object.values(S.scavi).map(x=>x.ente).filter(Boolean)])];
-  const form=(s,pre)=>`<datalist id="dl-ente-${pre}">${enti.map(v=>`<option value="${esc(v)}">`).join('')}</datalist><div class="fields">${SCF.map(([k,l,w])=>`<label class="f c${w}"><span>${l}</span><input id="${pre}-${k}" data-sk="${k}" value="${esc(s?.[k]||'')}" ${k==='ente'||k==='ufficio'?`list="dl-ente-${pre}" placeholder="Scegli o scrivi"`:''} ${ro}></label>`).join('')}</div>`;
+  const form=(s,pre)=>`<datalist id="dl-ente-${pre}">${enti.map(v=>`<option value="${esc(v)}">`).join('')}</datalist><div class="fields">${SCF.map(([k,l,w,ph,hint])=>`<label class="f c${w}"><span>${l}</span><input id="${pre}-${k}" data-sk="${k}" value="${esc(s?.[k]||'')}" ${k==='ente'||k==='ufficio'?`list="dl-ente-${pre}"`:''} ${ph?`placeholder="${esc(ph)}"`:''} ${k==='anno'?'inputmode="numeric" maxlength="4"':''} ${ro}>${hint?`<small class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">${esc(hint)}</small>`:''}</label>`).join('')}</div>`;
   m.innerHTML=`${roBanner()}<div class="cols">
-  ${sc?`<section class="panel"><h3>Dati dello scavo</h3><p class="note">Compaiono in testa a ogni scheda esportata. Area e saggio sono i valori proposti per le nuove US.${isSocio()?'':' Li modificano solo i soci.'}</p>${form(sc,'sc')}</section>
+  ${sc?`<section class="panel"><h3>Dati dello scavo</h3><p class="note">Compaiono in testa a ogni scheda esportata. Cantiere e saggio sono i valori proposti per le nuove US.${isSocio()?'':' Li modificano solo i soci.'}</p>${form(sc,'sc')}</section>
 `:''}
   <section class="panel"><h3>Esporta</h3>
     ${sc?`<div><b>Elenco US</b><p class="note">Con le stesse colonne del tuo foglio ELENCO_US_SCHEDE, così puoi incollarlo o usarlo con le unioni di documenti che hai già.</p>
