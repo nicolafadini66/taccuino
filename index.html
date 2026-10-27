@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <script>window.TACCUINO_ARCHIVIO="https://script.google.com/macros/s/AKfycbzkUhOcQu30D9b6zGMEXKELU37J30rlg7SYTvGE673U4pbE42D3472zPMwLR7anJYTWCg/exec";</script>
-<script>window.TACCUINO_BUILD="27/10/2026 09:46";</script>
+<script>window.TACCUINO_BUILD="27/10/2026 09:51";</script>
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -233,6 +233,7 @@ table.grid{border-collapse:collapse;width:100%;min-width:980px;font-size:14px}
       <button role="tab" data-view="elenco" id="tab-elenco">Elenco US<span class="count" id="cnt">0</span></button>
       <button role="tab" data-view="scheda" id="tab-scheda">Scheda</button>
       <button role="tab" data-view="controlli" id="tab-controlli">Controlli<span class="count" id="icnt">0</span></button>
+      <button role="tab" data-view="ricerca" id="tab-ricerca">Ricerca</button>
       <button role="tab" data-view="validare" id="tab-validare">Da validare<span class="count" id="vcnt">0</span></button>
       <button role="tab" data-view="scavo" id="tab-scavo">Scavo ed esporta</button>
     </nav>
@@ -1675,7 +1676,7 @@ function render(){
   const m=$('#main');
   if(canWrite&&!S.me){m.innerHTML=nameGate();bindNameGate();return}
   if(!curScavo()&&S.view!=='scavo'){m.innerHTML=emptyScavo();bindEmpty();return}
-  ({elenco:renderElenco,scheda:renderScheda,controlli:renderControlli,validare:renderValidare,scavo:renderScavo}[S.view]||renderElenco)();
+  ({elenco:renderElenco,scheda:renderScheda,controlli:renderControlli,ricerca:renderElenco,validare:renderValidare,scavo:renderScavo}[S.view]||renderElenco)();
 }
 const roBanner=()=>canWrite?'':'<div class="banner">Puoi consultare ed esportare le schede, ma non modificarle. Chiedi al responsabile dello scavo l’accesso come collaboratore.</div>';
 
@@ -1722,7 +1723,7 @@ function advFilter(list){
 }
 function advPanel(list){
   const a=S.adv||{};const on=advActive();
-  return `<details class="sec" id="advBox" ${on||S.advOpen?'open':''}><summary><h3>Ricerca avanzata</h3><span class="done">${on?`${list.length} risultati`:'sezioni, piante, rapporti…'}</span></summary>
+  return `<details class="sec" id="advBox" open><summary><h3>Ricerca avanzata</h3><span class="done">${on?`${list.length} risultati`:'sezioni, piante, rapporti…'}</span></summary>
   <div class="fields" style="padding:0 14px 6px">
     <label class="f c4"><span>Modello</span><select id="advMod">${[['tutti','Tutti'],['positiva','US positive'],['negativa','US negative'],['struttura','USM']].map(([v,l])=>`<option value="${v}" ${a.modello===v?'selected':''}>${l}</option>`).join('')}</select></label>
     <label class="f c4"><span>Cerca nel campo</span><select id="advCampo"><option value="">—</option>${ADV_CAMPI.map(([k,l])=>`<option value="${k}" ${a.campo===k?'selected':''}>${l}</option>`).join('')}</select></label>
@@ -1736,17 +1737,17 @@ function advPanel(list){
 function renderElenco(){
   const m=$('#main');const all=recsOf(S.cur);const q=(S.q||'').toLowerCase();
   const list=all.filter(r=>(S.filter==='tutte'||(S.filter==='bozza'?r.stato!=='completa':r.tipo===S.filter))&&(!q||(r.numero+' '+recText(r)).toLowerCase().includes(q)));
-  const listA=advFilter(list);
+  const isR=S.view==='ricerca';const listA=isR?advFilter(list):list;
   const drafts=all.filter(r=>r.stato!=='completa').length;
   const issues=checkRecords(all);const flagged=new Set(issues.filter(i=>i.sev!=='info').map(i=>i.num));
   m.innerHTML=`${roBanner()}
-  <div class="sch-head"><div><h2>Elenco US e USM</h2><div class="muted small">${esc(curScavo().nome||'')}${curScavo().localita?' · '+esc(curScavo().localita):''} — ${all.length} schede, <b>${drafts} da completare</b>${curScavo().respId?` · responsabile di cantiere: ${esc(personName(curScavo().respId)||'—')}`:''}</div>
+  <div class="sch-head"><div><h2>${isR?'Ricerca nelle schede':'Elenco US e USM'}</h2><div class="muted small">${esc(curScavo().nome||'')}${curScavo().localita?' · '+esc(curScavo().localita):''} — ${all.length} schede, <b>${drafts} da completare</b>${curScavo().respId?` · responsabile di cantiere: ${esc(personName(curScavo().respId)||'—')}`:''}</div>
   ${isResp(curScavo())&&db&&changedSince(curScavo())?`<div class="small" style="margin-top:4px"><b>${changedSince(curScavo())} schede modificate dopo l’ultimo archivio.</b> <button class="ghost" id="goArc" style="min-height:30px;padding:2px 8px">Salva l’archivio</button></div>`:''}</div>
 </div>
-  ${newNumPanel()}
+  ${isR?'':newNumPanel()}
   <div class="toolbar"><input type="search" id="q" placeholder="Cerca in tutte le voci delle schede…" value="${esc(S.q)}" aria-label="Cerca">
   <div class="seg" role="group" aria-label="Filtra">${[['tutte','Tutte'],['bozza',`Da completare (${drafts})`],['US','US'],['USM','USM']].map(([t,l])=>`<button data-f="${t}" aria-pressed="${S.filter===t}">${l}</button>`).join('')}</div></div>
-  ${all.length?advPanel(listA):''}
+  ${all.length&&isR?advPanel(listA):''}
   ${all.length?`<div class="sheet"><table class="grid"><thead><tr><th class="num">N. · compilatore</th>${COLS.map(c=>`<th style="min-width:${c[2]}px">${c[1]}</th>`).join('')}<th>Rapporti</th></tr></thead><tbody>
   ${listA.map(r=>`<tr data-id="${esc(r.id)}" class="${r.stato==='completa'?'':'draft'}"><td class="num"><button class="usnum" data-open="${esc(r.id)}" title="Apri la scheda"><span class="tag k-${kindOf(r)}" title="${KIND[kindOf(r)].nome}">${r.tipo}</span>${esc(r.numero)}${r.numProvv?'<span class="provv" title="Numero assegnato senza connessione">?</span>':''}${flagged.has(r.numero)?'<span class="flag" title="Da controllare">!</span>':''}</button>
    <span class="who" title="Compilatore">${esc(r.responsabile||r.completataDa||'compilatore non indicato')}</span>${r.stato!=='completa'?`<span class="miss-mini">Da completare${(()=>{const m=missingReq(r);return m.length?': manca '+esc(m.map(q=>q.l.replace(/ \(.*\)/,'').toLowerCase()).join(', ')):' (da salvare)'})()}</span>`:''}</td>
