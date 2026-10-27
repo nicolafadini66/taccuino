@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <script>window.TACCUINO_ARCHIVIO="https://script.google.com/macros/s/AKfycbzkUhOcQu30D9b6zGMEXKELU37J30rlg7SYTvGE673U4pbE42D3472zPMwLR7anJYTWCg/exec";</script>
-<script>window.TACCUINO_BUILD="27/10/2026 09:33";</script>
+<script>window.TACCUINO_BUILD="27/10/2026 09:46";</script>
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -312,12 +312,13 @@ const SCHEMA={
 };
 const allFields=tipo=>SCHEMA[tipo].flatMap(s=>s.f||[]);
 /* Voci principali: quelle che si compilano sempre, nella prima pagina della scheda. Il resto va in "Altri dati". */
-const ESS={positiva:['ambiente','definizione','geologici','organici','artificiali','colore','consistenza','misure','elementiDatanti','interpretazione'],
-  negativa:['ambiente','definizione','forma','pareti','fondo','orientamento','misure','interpretazione'],
-  struttura:['ambiente','definizione','orientamento','misure','tecnica','modulo','lat_materiali','lit_materiali','materialiAltro','leg_tipo','leg_colore','leg_consistenza','leg_componenti','interpretazione']};
+const ESS={positiva:['ambiente','piante','sezioni','definizione','geologici','organici','artificiali','colore','consistenza','misure','elementiDatanti','interpretazione'],
+  negativa:['ambiente','piante','sezioni','definizione','forma','pareti','fondo','orientamento','misure','interpretazione'],
+  struttura:['ambiente','piante','sezioni','prospetti','definizione','orientamento','misure','tecnica','modulo','lat_materiali','lit_materiali','materialiAltro','leg_tipo','leg_colore','leg_consistenza','leg_componenti','interpretazione']};
 const ESS_LABEL={ambiente:'Ambiente / vano',lat_materiali:'Laterizi: materiali',lit_materiali:'Elementi litici: materiali',materialiAltro:'Altri materiali',leg_tipo:'Legante: tipo',leg_colore:'Legante: colore',leg_consistenza:'Legante: consistenza',leg_componenti:'Legante: componenti',modulo:'Modulo dei laterizi'};
-const ESS_SPAN={ambiente:6,definizione:6,interpretazione:12,elementiDatanti:12,tecnica:12,geologici:4,organici:4,artificiali:4,colore:4,consistenza:4,misure:4,forma:4,pareti:4,fondo:4,orientamento:6,
+const ESS_SPAN={ambiente:6,definizione:6,piante:3,sezioni:3,prospetti:4,interpretazione:12,elementiDatanti:12,tecnica:12,geologici:4,organici:4,artificiali:4,colore:4,consistenza:4,misure:4,forma:4,pareti:4,fondo:4,orientamento:6,
   modulo:6,lat_materiali:6,lit_materiali:6,materialiAltro:12,leg_tipo:6,leg_colore:6,leg_consistenza:6,leg_componenti:6};
+const ESS_SPAN_K={struttura:{ambiente:3,piante:3,sezioni:3,prospetti:3,definizione:12,misure:6},negativa:{definizione:12,misure:6},positiva:{definizione:12}};
 function essKeys(r){return ESS[kindOf(r)]||[]}
 let schPage={id:null,p:1};
 
@@ -1687,9 +1688,55 @@ function bindEmpty(){const b=$('#goNew');if(b)b.onclick=()=>{go('scavo');setTime
 
 /* ---- Elenco ---- */
 const COLS=[['definizione','Definizione',150],['colore','Colore',110],['consistenza','Consistenza',130],['interpretazione','Interpretazione',190],['fase','Fase',90]];
+/* ---- Ricerca avanzata nell'elenco: campi di documentazione, rapporti diretti e sequenza indiretta ---- */
+const ADV_CAMPI=[['sezioni','Sezione'],['piante','Pianta'],['prospetti','Prospetto'],['foto','Fotografie'],['ambiente','Ambiente / vano'],['saggio','Saggio'],
+  ['settore','Settore'],['quadrato','Quadrato'],['area','Cantiere / area'],['definizione','Definizione'],['interpretazione','Interpretazione'],['fase','Fase'],['periodo','Periodo'],['datazione','Datazione'],
+  ['elementiDatanti','Elementi datanti'],['artificiali','Artificiali'],['tecnica','Tecnica costruttiva'],['responsabile','Compilatore'],['*','Qualsiasi campo']];
+const ADV_REL=[['taglia','tagliano'],['tagliatoda','sono tagliate da'],['copre','coprono'],['copertoda','sono coperte da'],['riempie','riempiono'],['riempitoda','sono riempite da'],['siappoggia','si appoggiano a'],['gliappoggia','hanno appoggiata'],['silega','si legano a'],['uguale','sono uguali a'],['_post','sono posteriori, anche indirettamente, a'],['_ante','sono anteriori, anche indirettamente, a']];
+const advNorm=v=>String(v||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim().replace(/^(sezione|sez|pianta|tavola|tav|foto|prospetto|prosp|vano|ambiente|saggio|settore|quadrato|fase|periodo)\b\.?/,'').replace(/[\s.\-_]+/g,'').replace(/^[a-z]{1,2}(?=\d)/,'');
+function advTextMatch(val,q){
+  const nq=advNorm(q);if(!nq)return true;const raw=String(val||'');if(!raw.trim())return false;
+  if(raw.split(/[,;\/+&]|\s+e\s+/i).some(t=>advNorm(t)===nq))return true;     // "S3" trova "S1, S3" ma non "S13"
+  return nq.length>=4&&advNorm(raw).includes(nq);                              // parole: "chiostro" trova "vano 2 chiostro"
+}
+function recText(r){return Object.entries(r).filter(([k,v])=>typeof v==='string'&&!['id','scavo','updatedBy'].includes(k)).map(([,v])=>v).join(' ')}
+/* sequenza: tutte le unità più recenti (o più antiche) di una US, seguendo i rapporti anche attraverso altre US */
+function seqClosure(num,dir){
+  const rs=recsOf(S.cur),byN=new Map(rs.map(r=>[r.numero,r]));const up=dir==='_post'?POST:ANTE,down=dir==='_post'?ANTE:POST;
+  const out=new Set(),todo=[num];
+  while(todo.length){const n=todo.pop();
+    rs.forEach(r=>{if(up.some(k=>(r.rel?.[k]||[]).includes(n))&&!out.has(r.numero)){out.add(r.numero);todo.push(r.numero)}});
+    const x=byN.get(n);if(x)down.forEach(k=>(x.rel?.[k]||[]).forEach(m=>{if(!out.has(m)){out.add(m);todo.push(m)}}));
+  }
+  out.delete(num);return out;
+}
+function advActive(){const a=S.adv||{};return !!((a.campo&&String(a.val||'').trim())||(a.rel&&String(a.relNum||'').trim())||(a.modello&&a.modello!=='tutti'))}
+function advFilter(list){
+  const a=S.adv||{};let out=list;
+  if(a.modello&&a.modello!=='tutti')out=out.filter(r=>kindOf(r)===a.modello);
+  if(a.campo&&String(a.val||'').trim())out=out.filter(r=>a.campo==='*'?(advTextMatch(recText(r),a.val)||recText(r).toLowerCase().includes(String(a.val).toLowerCase().trim())):advTextMatch(shown(r,a.campo),a.val));
+  if(a.rel&&String(a.relNum||'').trim()){const n=normNum(a.relNum);
+    if(a.rel==='_post'||a.rel==='_ante'){const set=seqClosure(n,a.rel);out=out.filter(r=>set.has(r.numero))}
+    else out=out.filter(r=>(shownRel(r,a.rel)||[]).includes(n));}
+  return out;
+}
+function advPanel(list){
+  const a=S.adv||{};const on=advActive();
+  return `<details class="sec" id="advBox" ${on||S.advOpen?'open':''}><summary><h3>Ricerca avanzata</h3><span class="done">${on?`${list.length} risultati`:'sezioni, piante, rapporti…'}</span></summary>
+  <div class="fields" style="padding:0 14px 6px">
+    <label class="f c4"><span>Modello</span><select id="advMod">${[['tutti','Tutti'],['positiva','US positive'],['negativa','US negative'],['struttura','USM']].map(([v,l])=>`<option value="${v}" ${a.modello===v?'selected':''}>${l}</option>`).join('')}</select></label>
+    <label class="f c4"><span>Cerca nel campo</span><select id="advCampo"><option value="">—</option>${ADV_CAMPI.map(([k,l])=>`<option value="${k}" ${a.campo===k?'selected':''}>${l}</option>`).join('')}</select></label>
+    <label class="f c4"><span>Valore</span><input id="advVal" value="${esc(a.val||'')}" placeholder="es. S3, P2, vano 2" autocomplete="off"></label>
+    <label class="f c8"><span>Unità che…</span><select id="advRel"><option value="">—</option>${ADV_REL.map(([k,l])=>`<option value="${k}" ${a.rel===k?'selected':''}>${l}</option>`).join('')}</select></label>
+    <label class="f c4"><span>…la US / USM</span><input id="advNum" value="${esc(a.relNum||'')}" placeholder="es. 5" autocomplete="off"></label>
+  </div>
+  <div class="row" style="padding:0 14px 14px">${on?`<span><b>${list.length}</b> ${list.length===1?'unità':'unità'}: ${esc(list.map(r=>r.numero).join(', '))||'nessuna'}</span><span class="spacer"></span>
+    <button type="button" id="advXlsx" ${list.length?'':'disabled'}>Excel dei risultati</button><button type="button" id="advPdf" ${list.length?'':'disabled'}>PDF dei risultati</button><button type="button" class="ghost" id="advClr">Azzera</button>`:'<span class="muted small">Esempi: tutte le US della sezione S3; tutte le unità che tagliano la US 5; tutto ciò che è posteriore alla USM 15.</span>'}</div></details>`;
+}
 function renderElenco(){
   const m=$('#main');const all=recsOf(S.cur);const q=(S.q||'').toLowerCase();
-  const list=all.filter(r=>(S.filter==='tutte'||(S.filter==='bozza'?r.stato!=='completa':r.tipo===S.filter))&&(!q||[r.numero,r.definizione,r.interpretazione,r.descrizione,r.colore,r.fase,r.responsabile].join(' ').toLowerCase().includes(q)));
+  const list=all.filter(r=>(S.filter==='tutte'||(S.filter==='bozza'?r.stato!=='completa':r.tipo===S.filter))&&(!q||(r.numero+' '+recText(r)).toLowerCase().includes(q)));
+  const listA=advFilter(list);
   const drafts=all.filter(r=>r.stato!=='completa').length;
   const issues=checkRecords(all);const flagged=new Set(issues.filter(i=>i.sev!=='info').map(i=>i.num));
   m.innerHTML=`${roBanner()}
@@ -1697,17 +1744,27 @@ function renderElenco(){
   ${isResp(curScavo())&&db&&changedSince(curScavo())?`<div class="small" style="margin-top:4px"><b>${changedSince(curScavo())} schede modificate dopo l’ultimo archivio.</b> <button class="ghost" id="goArc" style="min-height:30px;padding:2px 8px">Salva l’archivio</button></div>`:''}</div>
 </div>
   ${newNumPanel()}
-  <div class="toolbar"><input type="search" id="q" placeholder="Cerca per numero, definizione, interpretazione…" value="${esc(S.q)}" aria-label="Cerca">
+  <div class="toolbar"><input type="search" id="q" placeholder="Cerca in tutte le voci delle schede…" value="${esc(S.q)}" aria-label="Cerca">
   <div class="seg" role="group" aria-label="Filtra">${[['tutte','Tutte'],['bozza',`Da completare (${drafts})`],['US','US'],['USM','USM']].map(([t,l])=>`<button data-f="${t}" aria-pressed="${S.filter===t}">${l}</button>`).join('')}</div></div>
+  ${all.length?advPanel(listA):''}
   ${all.length?`<div class="sheet"><table class="grid"><thead><tr><th class="num">N. · compilatore</th>${COLS.map(c=>`<th style="min-width:${c[2]}px">${c[1]}</th>`).join('')}<th>Rapporti</th></tr></thead><tbody>
-  ${list.map(r=>`<tr data-id="${esc(r.id)}" class="${r.stato==='completa'?'':'draft'}"><td class="num"><button class="usnum" data-open="${esc(r.id)}" title="Apri la scheda"><span class="tag k-${kindOf(r)}" title="${KIND[kindOf(r)].nome}">${r.tipo}</span>${esc(r.numero)}${r.numProvv?'<span class="provv" title="Numero assegnato senza connessione">?</span>':''}${flagged.has(r.numero)?'<span class="flag" title="Da controllare">!</span>':''}</button>
+  ${listA.map(r=>`<tr data-id="${esc(r.id)}" class="${r.stato==='completa'?'':'draft'}"><td class="num"><button class="usnum" data-open="${esc(r.id)}" title="Apri la scheda"><span class="tag k-${kindOf(r)}" title="${KIND[kindOf(r)].nome}">${r.tipo}</span>${esc(r.numero)}${r.numProvv?'<span class="provv" title="Numero assegnato senza connessione">?</span>':''}${flagged.has(r.numero)?'<span class="flag" title="Da controllare">!</span>':''}</button>
    <span class="who" title="Compilatore">${esc(r.responsabile||r.completataDa||'compilatore non indicato')}</span>${r.stato!=='completa'?`<span class="miss-mini">Da completare${(()=>{const m=missingReq(r);return m.length?': manca '+esc(m.map(q=>q.l.replace(/ \(.*\)/,'').toLowerCase()).join(', ')):' (da salvare)'})()}</span>`:''}</td>
    ${COLS.map(c=>`<td><input data-k="${c[0]}" value="${esc(shown(r,c[0]))}" ${pendVal(r,c[0])!==undefined?'class="ispend" title="In attesa di validazione"':''} list="dl-${c[0]}-${r.tipo}" aria-label="${c[1]} ${esc(r.numero)}" ${canWrite?'':'readonly'}></td>`).join('')}
    <td class="rels">${relSummary(r)}</td></tr>`).join('')}
-  </tbody></table></div>${list.length?'':'<p class="muted">Nessuna scheda corrisponde alla ricerca.</p>'}`:
+  </tbody></table></div>${listA.length?'':'<p class="muted">Nessuna scheda corrisponde alla ricerca.</p>'}`:
   `<div class="empty"><h3>Nessuna US ancora</h3><p>Crea la prima scheda qui sul campo, oppure importa l’elenco che hai già su un foglio di calcolo dalla sezione Scavo ed esporta.</p></div>`}`;
   $('#q').oninput=e=>{S.q=e.target.value;persist();clearTimeout(renderElenco.t);renderElenco.t=setTimeout(()=>{const p=e.target.selectionStart;renderElenco();const n=$('#q');n.focus();n.setSelectionRange(p,p)},200)};
   m.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{S.filter=b.dataset.f;persist();renderElenco()});
+  const adv=$('#advBox');if(adv){adv.ontoggle=()=>{S.advOpen=adv.open};
+    const upd=(k,v,typing)=>{S.adv={...(S.adv||{}),[k]:v};persist();clearTimeout(renderElenco.a);renderElenco.a=setTimeout(()=>{const id=document.activeElement?.id,p=document.activeElement?.selectionStart;renderElenco();const e=id&&$('#'+id);if(e){e.focus();if(typing&&p!=null)try{e.setSelectionRange(p,p)}catch(x){}}},typing?350:0)};
+    $('#advMod').onchange=e=>upd('modello',e.target.value);$('#advCampo').onchange=e=>upd('campo',e.target.value);$('#advRel').onchange=e=>upd('rel',e.target.value);
+    $('#advVal').oninput=e=>upd('val',e.target.value,true);$('#advNum').oninput=e=>upd('relNum',e.target.value,true);
+    const c=$('#advClr');if(c)c.onclick=()=>{S.adv={};persist();renderElenco()};
+    const sc=curScavo(),fn=()=>{const a=S.adv||{};return [a.campo&&a.val?`${(ADV_CAMPI.find(x=>x[0]===a.campo)||['',''])[1]} ${a.val}`:'',a.rel&&a.relNum?`${(ADV_REL.find(x=>x[0]===a.rel)||['',''])[1].replace(/ \(.*\)/,'')} ${a.relNum}`:''].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|#%]+/g,'-')};
+    const x=$('#advXlsx');if(x)x.onclick=()=>offerFile(`Ricerca ${fn()||'elenco'}.xlsx`,new Blob([buildXlsx(listA,sc)]));
+    const pd=$('#advPdf');if(pd)pd.onclick=()=>exportPdf(listA,sc,false,pdfNameMany(listA));}
+
   m.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{S.open=b.dataset.open;ocrState=null;go('scheda')});
   bindNewNum();
   const ga=$('#goArc');if(ga)ga.onclick=()=>go('scavo');
@@ -1754,7 +1811,7 @@ function renderScheda(){
   const filled=s=>s.f?`${s.f.filter(f=>String(r[f.k]||'').trim()).length}/${s.f.length}`:s.rel?`${RELS.filter(([k])=>(r.rel?.[k]||[]).length).length} rapporti`:`${(r.foto_ids||[]).length} foto`;
   const pg=schPage.id===r.id?schPage.p:1;schPage={id:r.id,p:pg};
   const ek=essKeys(r),all=allFields(r.tipo);
-  const essF=ek.map(k=>all.find(f=>f.k===k)).filter(Boolean).map(f=>({...f,l:ESS_LABEL[f.k]||f.l,s:ESS_SPAN[f.k]||f.s}));
+  const essF=ek.map(k=>all.find(f=>f.k===k)).filter(Boolean).map(f=>({...f,l:ESS_LABEL[f.k]||f.l,s:(ESS_SPAN_K[kindOf(r)]||{})[f.k]||ESS_SPAN[f.k]||f.s}));
   const pg1Sects=[{t:'Voci principali',f:essF},...sect.filter(x=>x.desc||x.rel)];
   const pg2Sects=sect.filter(x=>!x.desc&&!x.rel).map(x=>x.f?{...x,f:x.f.filter(f=>!ek.includes(f.k))}:x).filter(x=>!x.f||x.f.length);
   const others=pg2Sects.flatMap(x=>x.f||[]),otherTot=others.length,otherFilled=others.filter(f=>String(shown(r,f.k)||'').trim()).length;
