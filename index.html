@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <script>window.TACCUINO_ARCHIVIO="https://script.google.com/macros/s/AKfycbzkUhOcQu30D9b6zGMEXKELU37J30rlg7SYTvGE673U4pbE42D3472zPMwLR7anJYTWCg/exec";</script>
-<script>window.TACCUINO_BUILD="27/10/2026 07:38";</script>
+<script>window.TACCUINO_BUILD="27/10/2026 09:33";</script>
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -213,6 +213,7 @@ table.grid{border-collapse:collapse;width:100%;min-width:980px;font-size:14px}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
 .panel .fields{padding:0}
+.nomeprev{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px}.nomeprev b{font-size:17px}
 .panel{container-type:inline-size}@container (max-width:520px){.panel .fields>.c8,.panel .fields>.c6,.panel .fields>.c4{grid-column:span 12}}
 .exp{display:flex;flex-wrap:wrap;gap:8px}
 .note{font-size:14px;color:var(--muted)}
@@ -1646,12 +1647,12 @@ function applyOcr(r){
 /* ================= Interfaccia ================= */
 function go(v){S.view=v;persist();render();scrollTo({top:0})}
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>go(b.dataset.view));
-$('#scavoSel').onchange=e=>{if(e.target.value==='__new'){go('scavo');setTimeout(()=>$('#ns-nome')?.focus(),30);renderHeader();return}
+$('#scavoSel').onchange=e=>{if(e.target.value==='__new'){go('scavo');setTimeout(()=>$('#ns-localita')?.focus(),30);renderHeader();return}
   S.cur=e.target.value;S.open=null;persist();subscribeUS();render()};
 
 function renderHeader(){
   const sel=$('#scavoSel');const sc=Object.values(S.scavi).sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
-  sel.innerHTML=(sc.length?'':'<option value="">Nessuno scavo</option>')+sc.map(s=>`<option value="${esc(s.id)}"${s.id===S.cur?' selected':''}>${esc(s.nome||s.localita||'Scavo')}${s.anno?' · '+esc(s.anno):''}</option>`).join('')+(canWrite&&isSocio()?'<option value="__new">+ Nuovo scavo…</option>':'');
+  sel.innerHTML=(sc.length?'':'<option value="">Nessuno scavo</option>')+sc.map(s=>`<option value="${esc(s.id)}"${s.id===S.cur?' selected':''}>${esc(s.nome||scavoName(s))}${s.anno&&!s.nomeAnno?' · '+esc(s.anno):''}</option>`).join('')+(canWrite&&isSocio()?'<option value="__new">+ Nuovo scavo…</option>':'');
   document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===S.view));
   const rs=recsOf(S.cur);$('#cnt').textContent=rs.length;
   const iss=checkRecords(rs).filter(i=>i.sev!=='info');$('#icnt').textContent=iss.length;const pc=pendCount();$('#vcnt').textContent=pc;$('#tab-validare').hidden=!pc&&S.view!=='validare';
@@ -1682,7 +1683,7 @@ function emptyScavo(){
   <p>Ogni scavo raccoglie le sue US e USM, con ente, anno e località che finiscono in testa a ogni scheda. L’équipe vede le stesse schede in tempo reale; senza rete le modifiche restano sul dispositivo e partono appena torna la connessione.</p>
   ${canWrite&&isSocio()?'<button class="primary" id="goNew">Crea uno scavo</button>':'<p class="muted">Nessuno scavo ancora: lo apre uno dei soci.</p>'}</div>`;
 }
-function bindEmpty(){const b=$('#goNew');if(b)b.onclick=()=>{go('scavo');setTimeout(()=>$('#ns-nome')?.focus(),30)}}
+function bindEmpty(){const b=$('#goNew');if(b)b.onclick=()=>{go('scavo');setTimeout(()=>$('#ns-localita')?.focus(),30)}}
 
 /* ---- Elenco ---- */
 const COLS=[['definizione','Definizione',150],['colore','Colore',110],['consistenza','Consistenza',130],['interpretazione','Interpretazione',190],['fase','Fase',90]];
@@ -2238,17 +2239,23 @@ function renderControlli(){
 }
 
 /* ---- Scavo ed esporta ---- */
-const SCF=[['nome','Nome dello scavo',12,'es. Ex IPSIA'],
-  ['localita','Località',8,'es. Ferrara','Il comune o la località: va in testa alle schede e nel nome della cartella su Drive.'],
+const SCF=[['localita','Località',6,'es. Ferrara','Il comune o la località.'],
+  ['area','Cantiere',6,'es. Ex IPSIA','Nelle schede va nella casella “Area / edificio / struttura” ed è proposto per ogni nuova US.'],
   ['anno','Anno',4,'es. 2026','Quello in corso; se lo scavo è di anni precedenti scrivi l’anno dello scavo.'],
-  ['area','Cantiere (area / edificio / struttura)',12,'es. Ex IPSIA – chiostro','Nelle schede va nella casella “Area / edificio / struttura”; è proposto per ogni nuova US.'],
+  ['nomeAnno','Aggiungi l’anno al nome',8,'','Per i cantieri con più campagne o fasi, così due scavi non hanno lo stesso nome.','check'],
   ['saggio','Saggio',6,'es. Saggio 1'],['identificativo','Identificativo del saggio / edificio / struttura di riferimento',12],
   ['ente','Ente responsabile',12,'Scegli o scrivi'],['ufficio','Ufficio MiC competente per tutela',12,'Scegli o scrivi'],
   ['respScientifico','Responsabile scientifico delle indagini',12]];
+/* nome dello scavo: "Località – Cantiere", con "– Anno" se richiesto */
+const skVal=el=>el.type==='checkbox'?el.checked:el.value.trim();
+function nomePrev(pre,x){const e=document.querySelector(`[data-nomeprev="${pre}"] b`);if(e)e.textContent=scavoName(x)}
+function scavoName(x){const parts=[x.localita,x.area].map(v=>String(v||'').trim()).filter(Boolean);
+  if(!parts.length)return String(x.nome||'').trim()||'Scavo';
+  if(x.nomeAnno&&String(x.anno||'').trim())parts.push(String(x.anno).trim());return parts.join(' – ')}
 function renderScavo(){
   const m=$('#main');const sc=curScavo();const rs=sc?recsOf(sc.id):[];const ro=canWrite&&isSocio()?'':'readonly';
   const enti=[...new Set([...vocabList('ente'),...Object.values(S.scavi).map(x=>x.ente).filter(Boolean)])];
-  const form=(s,pre)=>`<datalist id="dl-ente-${pre}">${enti.map(v=>`<option value="${esc(v)}">`).join('')}</datalist><div class="fields">${SCF.map(([k,l,w,ph,hint])=>`<label class="f c${w}"><span>${l}</span><input id="${pre}-${k}" data-sk="${k}" value="${esc(s?.[k]||'')}" ${k==='ente'||k==='ufficio'?`list="dl-ente-${pre}"`:''} ${ph?`placeholder="${esc(ph)}"`:''} ${k==='anno'?'inputmode="numeric" maxlength="4"':''} ${ro}>${hint?`<small class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">${esc(hint)}</small>`:''}</label>`).join('')}</div>`;
+  const form=(s,pre)=>`<datalist id="dl-ente-${pre}">${enti.map(v=>`<option value="${esc(v)}">`).join('')}</datalist><div class="fields"><div class="c12 nomeprev" data-nomeprev="${pre}"><span class="muted small">NOME DELLO SCAVO</span><b>${esc(pre==='sc'&&s?.nome?s.nome:scavoName(s||{}))}</b></div>${SCF.map(([k,l,w,ph,hint,t])=>t==='check'?`<div class="c${w}" style="align-self:end"><label class="chk"><input type="checkbox" id="${pre}-${k}" data-sk="${k}" ${s?.[k]?'checked':''} ${ro?'disabled':''}> ${l}</label>${hint?`<small class="muted" style="display:block">${esc(hint)}</small>`:''}</div>`:`<label class="f c${w}"><span>${l}</span><input id="${pre}-${k}" data-sk="${k}" value="${esc(s?.[k]||'')}" ${k==='ente'||k==='ufficio'?`list="dl-ente-${pre}"`:''} ${ph?`placeholder="${esc(ph)}"`:''} ${k==='anno'?'inputmode="numeric" maxlength="4"':''} ${ro}>${hint?`<small class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">${esc(hint)}</small>`:''}</label>`).join('')}</div>`;
   m.innerHTML=`${roBanner()}<div class="cols">
   ${sc?`<section class="panel"><h3>Dati dello scavo</h3><p class="note">Compaiono in testa a ogni scheda esportata. Cantiere e saggio sono i valori proposti per le nuove US.${isSocio()?'':' Li modificano solo i soci.'}</p>${form(sc,'sc')}</section>
 `:''}
@@ -2269,11 +2276,11 @@ function renderScavo(){
     <button id="logout" style="align-self:flex-start">Esci</button></section>`
   :`<section class="panel"><h3>Il tuo nome</h3><p class="note">È legato al tuo account: compare sulle schede, nello storico e nell’elenco come compilatore.</p>
     <label class="f"><span>Nome</span><input id="me" value="${esc(S.me)}" placeholder="es. N. Fadini"></label></section>`}
-  ${canWrite&&isSocio()?`<section class="panel"><h3>Nuovo scavo</h3>${form({anno:String(new Date().getFullYear())},'ns')}${STANDALONE?'<p class="note" style="margin:0">I PDF vanno nella cartella “Nome scavo - schede US”, dentro la cartella “Località – Scavo” con Dati e Foto, accanto al Foglio dell’archivio sul Drive del responsabile.</p>':destPicker('dn',null)}
+  ${canWrite&&isSocio()?`<section class="panel"><h3>Nuovo scavo</h3>${form({anno:String(new Date().getFullYear())},'ns')}${STANDALONE?'<p class="note" style="margin:0">Il nome dello scavo è “Località – Cantiere” (con l’anno, se lo aggiungi). I PDF vanno nella cartella “Nome dello scavo - schede US”, dentro la cartella dello scavo con Dati e Foto, accanto al Foglio dell’archivio sul Drive del responsabile.</p>':destPicker('dn',null)}
     <p class="note" style="margin:0">Chi crea lo scavo ne diventa il responsabile di cantiere; potrà passare il ruolo a un altro socio.</p>
     <button class="primary" id="nsGo" style="align-self:flex-start">Crea lo scavo</button></section>`:''}
   </div>`;
-  if(sc)m.querySelectorAll('[id^="sc-"]').forEach(el=>el.onchange=()=>{sc[el.dataset.sk]=el.value.trim();saveScavo(sc);if(el.dataset.sk==='ente')learnVocab('ente',el.value,'');renderHeader()});
+  if(sc)m.querySelectorAll('[id^="sc-"][data-sk]').forEach(el=>el.onchange=()=>{sc[el.dataset.sk]=skVal(el);if(String(sc.localita||'').trim()||String(sc.area||'').trim())sc.nome=scavoName(sc);nomePrev('sc',sc);saveScavo(sc);if(el.dataset.sk==='ente')learnVocab('ente',el.value,'');renderHeader()});
   const meI=$('#me');if(meI)meI.onchange=e=>{S.me=e.target.value.trim();persist();registerMe()};
   const lo=$('#logout');if(lo)lo.onclick=logout;
   if(sc)bindRespPanel(sc);if(isOwnerV)bindRolesPanel();
@@ -2298,8 +2305,11 @@ function renderScavo(){
   b('bKs',()=>exportPdf([{tipo:'USM',numero:'',rel:{}}],sc,true,'Scheda_US_struttura_vuota.pdf'));
 
   bindDestPicker('dn');
-  b('nsGo',()=>{const s={id:uid('s'),createdAt:Date.now()};m.querySelectorAll('input[id^="ns-"][data-sk]').forEach(el=>s[el.dataset.sk]=el.value.trim());
-    if(!s.nome&&!s.localita){toast('Dai almeno un nome o una località allo scavo.');$('#ns-nome').focus();return}
+  m.querySelectorAll('input[id^="ns-"][data-sk]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{const x={};m.querySelectorAll('input[id^="ns-"][data-sk]').forEach(e=>x[e.dataset.sk]=skVal(e));nomePrev('ns',x)}));
+  b('nsGo',()=>{const s={id:uid('s'),createdAt:Date.now()};m.querySelectorAll('input[id^="ns-"][data-sk]').forEach(el=>s[el.dataset.sk]=skVal(el));
+    if(!s.localita&&!s.area){toast('Scrivi almeno la località e il cantiere.');$('#ns-localita').focus();return}
+    s.nome=scavoName(s);
+    if(Object.values(S.scavi).some(x=>x&&!x.deleted&&scavoName(x).toLowerCase()===s.nome.toLowerCase())){toast(`Esiste già uno scavo “${s.nome}”: spunta “Aggiungi l’anno al nome”.`);$('#ns-nomeAnno')?.focus();return}
     const dest=STANDALONE?null:readDestPicker('dn');if(dest===undefined)return;
     if(dest)s.dest={...dest,ownerId:myId||null};if(myId)s.respId=myId;
     if(!s.nome)s.nome=s.localita;saveScavo(s);S.cur=s.id;S.open=null;persist();subscribeUS();toast(`Scavo “${s.nome}” creato`);go('elenco')});
