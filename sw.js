@@ -1,6 +1,6 @@
 /* Taccuino di scavo — funzionamento offline: l'app e le librerie restano sul dispositivo */
-const VERSIONE = 'taccuino-v6';
-const BASE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
+const VERSIONE = 'taccuino-v7';
+const BASE = ['./', './index.html', './manifest.webmanifest', './manifest-campo.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
 const ESTERNI = ['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'];
 
 self.addEventListener('install', e => {

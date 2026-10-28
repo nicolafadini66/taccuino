@@ -8,8 +8,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <script>window.TACCUINO_ARCHIVIO="https://script.google.com/macros/s/AKfycbzkUhOcQu30D9b6zGMEXKELU37J30rlg7SYTvGE673U4pbE42D3472zPMwLR7anJYTWCg/exec";</script>
-<script>window.TACCUINO_BUILD="28/10/2026 17:30";</script>
-<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}button.mx-btn{font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:inline-flex;align-items:center;gap:7px;cursor:pointer}button.mx-btn svg{width:15px;height:15px}
+<script>/* versione campo (telefono, solo immissione dati) o completa: ?modo=campo / ?modo=completo, ricordata sul dispositivo */
+(function(){var m=null;try{m=new URLSearchParams(location.search).get('modo');if(m)localStorage.setItem('taccuino-modo',m==='campo'?'campo':'completo');m=m||localStorage.getItem('taccuino-modo')}catch(e){}
+window.MODO_CAMPO=(m==='campo');if(window.MODO_CAMPO)document.documentElement.classList.add('campo')})();</script>
+<script>window.TACCUINO_BUILD="28/10/2026 18:10";</script>
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}html.campo #tab-controlli,html.campo #tab-ricerca,html.campo #tab-validare,html.campo #tab-scavo,html.campo #btnMatrix,html.campo #qMx{display:none!important}html.campo .solo-completa{display:none!important}html:not(.campo) .solo-campo{display:none!important}#toCompleta::before,#campoEsci::before{display:none}#toCompleta,#campoEsci{text-decoration:none;color:inherit;background:var(--surface);cursor:pointer;font:inherit;font-size:13px;font-weight:600}.campo-tag{font-size:11px;font-weight:800;letter-spacing:.08em;padding:2px 7px;border-radius:5px;margin-left:8px;vertical-align:middle}.campo-tag{background:var(--accent);color:var(--on-accent)}button.mx-btn{font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:inline-flex;align-items:center;gap:7px;cursor:pointer}button.mx-btn svg{width:15px;height:15px}
 </style>
 </head>
 <body>
@@ -226,10 +229,11 @@ table.grid{border-collapse:collapse;width:100%;min-width:980px;font-size:14px}
 <header class="top">
   <div class="wrap">
     <div class="bar">
-      <div class="brand"><i aria-hidden="true"></i>Taccuino di scavo</div>
+      <div class="brand"><i aria-hidden="true"></i>Taccuino di scavo<span class="campo-tag solo-campo">CAMPO</span></div>
       <div class="scavo-pick"><select id="scavoSel" aria-label="Scavo attivo"></select></div>
       <button type="button" id="btnMatrix" class="mx-btn" title="Matrix di Harris delle US e USM">Matrix</button>
       <span id="sync" class="pill muted">Avvio…</span>
+      <a id="toCompleta" class="pill solo-campo" href="?modo=completo" hidden>Versione completa</a><button type="button" id="campoEsci" class="pill solo-campo" hidden>Esci</button>
     </div>
     <nav class="tabs" role="tablist" aria-label="Sezioni">
       <button role="tab" data-view="elenco" id="tab-elenco">Elenco US<span class="count" id="cnt">0</span></button>
@@ -1028,9 +1032,9 @@ function logout(){API={url:API.url};saveApi();location.reload()}
 function installPwa(){
   try{
     const add=(tag,attrs)=>{const el=document.createElement(tag);Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));document.head.append(el)};
-    add('link',{rel:'manifest',href:'manifest.webmanifest'});add('link',{rel:'apple-touch-icon',href:'icon-180.png'});
+    add('link',{rel:'manifest',href:window.MODO_CAMPO?'manifest-campo.webmanifest':'manifest.webmanifest'});add('link',{rel:'apple-touch-icon',href:'icon-180.png'});
     add('meta',{name:'apple-mobile-web-app-capable',content:'yes'});add('meta',{name:'mobile-web-app-capable',content:'yes'});
-    add('meta',{name:'apple-mobile-web-app-title',content:'Taccuino'});add('meta',{name:'theme-color',content:'#1B221F'});
+    add('meta',{name:'apple-mobile-web-app-title',content:window.MODO_CAMPO?'Scavo campo':'Taccuino'});add('meta',{name:'theme-color',content:'#1B221F'});
     if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('sw.js').catch(()=>{});
     const vb=document.createElement('div');vb.id='verTag';vb.textContent='versione '+(window.TACCUINO_BUILD||'—');
     vb.style.cssText='position:fixed;right:8px;bottom:4px;font-size:10px;opacity:.45;pointer-events:none;z-index:5';document.body.append(vb);
@@ -1655,6 +1659,7 @@ $('#scavoSel').onchange=e=>{if(e.target.value==='__new'){go('scavo');setTimeout(
   S.cur=e.target.value;S.open=null;persist();subscribeUS();render()};
 
 function renderHeader(){
+  if(window.MODO_CAMPO){const tc=$('#toCompleta'),ce=$('#campoEsci');if(tc)tc.hidden=!(typeof isSocio==='function'&&isSocio());if(ce){ce.hidden=false;ce.onclick=()=>{if(confirm('Uscire dall’archivio su questo dispositivo?'))logout()}}}
   if(window.Matrix)setTimeout(()=>Matrix.refresh(),0);
   const sel=$('#scavoSel');const sc=Object.values(S.scavi).sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
   sel.innerHTML=(sc.length?'':'<option value="">Nessuno scavo</option>')+sc.map(s=>`<option value="${esc(s.id)}"${s.id===S.cur?' selected':''}>${esc(s.nome||scavoName(s))}${s.anno&&!s.nomeAnno?' · '+esc(s.anno):''}</option>`).join('')+(canWrite&&isSocio()?'<option value="__new">+ Nuovo scavo…</option>':'');
@@ -1675,6 +1680,7 @@ function softRender(){
 document.addEventListener('focusout',()=>{if(softRender.pending)setTimeout(()=>{const a=document.activeElement;if(!(a&&$('#main').contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))){softRender.pending=false;render()}},250)});
 
 function render(){
+  if(window.MODO_CAMPO&&!['elenco','scheda'].includes(S.view))S.view='elenco';
   renderHeader();
   const m=$('#main');
   if(canWrite&&!S.me){m.innerHTML=nameGate();bindNameGate();return}
@@ -1686,7 +1692,7 @@ const roBanner=()=>canWrite?'':'<div class="banner">Puoi consultare ed esportare
 function emptyScavo(){
   return `${roBanner()}<div class="empty"><h2>Apri il primo scavo</h2>
   <p>Ogni scavo raccoglie le sue US e USM, con ente, anno e località che finiscono in testa a ogni scheda. L’équipe vede le stesse schede in tempo reale; senza rete le modifiche restano sul dispositivo e partono appena torna la connessione.</p>
-  ${canWrite&&isSocio()?'<button class="primary" id="goNew">Crea uno scavo</button>':'<p class="muted">Nessuno scavo ancora: lo apre uno dei soci.</p>'}</div>`;
+  ${window.MODO_CAMPO?'<p class="muted">Nessuno scavo ancora: si crea dalla versione completa dell’app (tablet o PC).</p>':canWrite&&isSocio()?'<button class="primary" id="goNew">Crea uno scavo</button>':'<p class="muted">Nessuno scavo ancora: lo apre uno dei soci.</p>'}</div>`;
 }
 function bindEmpty(){const b=$('#goNew');if(b)b.onclick=()=>{go('scavo');setTimeout(()=>$('#ns-localita')?.focus(),30)}}
 
