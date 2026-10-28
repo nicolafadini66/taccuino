@@ -11,7 +11,7 @@
 <script>/* versione campo (telefono, solo immissione dati) o completa: ?modo=campo / ?modo=completo, ricordata sul dispositivo */
 (function(){var m=null;try{m=new URLSearchParams(location.search).get('modo');if(m)localStorage.setItem('taccuino-modo',m==='campo'?'campo':'completo');m=m||localStorage.getItem('taccuino-modo')}catch(e){}
 window.MODO_CAMPO=(m==='campo');if(window.MODO_CAMPO)document.documentElement.classList.add('campo')})();</script>
-<script>window.TACCUINO_BUILD="28/10/2026 18:10";</script>
+<script>window.TACCUINO_BUILD="28/10/2026 18:20";</script>
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}html.campo #tab-controlli,html.campo #tab-ricerca,html.campo #tab-validare,html.campo #tab-scavo,html.campo #btnMatrix,html.campo #qMx{display:none!important}html.campo .solo-completa{display:none!important}html:not(.campo) .solo-campo{display:none!important}#toCompleta::before,#campoEsci::before{display:none}#toCompleta,#campoEsci{text-decoration:none;color:inherit;background:var(--surface);cursor:pointer;font:inherit;font-size:13px;font-weight:600}.campo-tag{font-size:11px;font-weight:800;letter-spacing:.08em;padding:2px 7px;border-radius:5px;margin-left:8px;vertical-align:middle}.campo-tag{background:var(--accent);color:var(--on-accent)}button.mx-btn{font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:inline-flex;align-items:center;gap:7px;cursor:pointer}button.mx-btn svg{width:15px;height:15px}
 </style>
 </head>
@@ -1655,7 +1655,7 @@ function applyOcr(r){
 /* ================= Interfaccia ================= */
 function go(v){S.view=v;persist();render();scrollTo({top:0})}
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>go(b.dataset.view));
-$('#scavoSel').onchange=e=>{if(e.target.value==='__new'){go('scavo');setTimeout(()=>$('#ns-localita')?.focus(),30);renderHeader();return}
+$('#scavoSel').onchange=e=>{if(e.target.value==='__new'){S.campoNuovo=true;go('scavo');setTimeout(()=>$('#ns-localita')?.focus(),30);renderHeader();return}
   S.cur=e.target.value;S.open=null;persist();subscribeUS();render()};
 
 function renderHeader(){
@@ -1679,22 +1679,29 @@ function softRender(){
 }
 document.addEventListener('focusout',()=>{if(softRender.pending)setTimeout(()=>{const a=document.activeElement;if(!(a&&$('#main').contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))){softRender.pending=false;render()}},250)});
 
+function campoSoloNuovo(){if(!(window.MODO_CAMPO&&S.view==='scavo'))return;const m=$('#main');
+  m.querySelectorAll('section.panel').forEach(sec=>{if(!sec.querySelector('#nsGo'))sec.hidden=true});
+  if(!m.querySelector('#nsGo')){m.insertAdjacentHTML('afterbegin','<p class="muted">Solo il responsabile o un socio può creare uno scavo.</p>')}
+  if(!m.querySelector('#campoAnn')){m.insertAdjacentHTML('afterbegin','<div class="row" style="margin:6px 0 10px"><button type="button" id="campoAnn">← Torna all’elenco</button></div>');$('#campoAnn').onclick=()=>{S.campoNuovo=false;go('elenco')}}
+  setTimeout(()=>$('#ns-localita')?.focus(),30)}
 function render(){
-  if(window.MODO_CAMPO&&!['elenco','scheda'].includes(S.view))S.view='elenco';
+  if(S.view!=='scavo')S.campoNuovo=false;
+  if(window.MODO_CAMPO&&!['elenco','scheda'].includes(S.view)&&!(S.view==='scavo'&&S.campoNuovo))S.view='elenco';
   renderHeader();
   const m=$('#main');
   if(canWrite&&!S.me){m.innerHTML=nameGate();bindNameGate();return}
   if(!curScavo()&&S.view!=='scavo'){m.innerHTML=emptyScavo();bindEmpty();return}
   ({elenco:renderElenco,scheda:renderScheda,controlli:renderControlli,ricerca:renderElenco,validare:renderValidare,scavo:renderScavo}[S.view]||renderElenco)();
+  campoSoloNuovo();
 }
 const roBanner=()=>canWrite?'':'<div class="banner">Puoi consultare ed esportare le schede, ma non modificarle. Chiedi al responsabile dello scavo l’accesso come collaboratore.</div>';
 
 function emptyScavo(){
   return `${roBanner()}<div class="empty"><h2>Apri il primo scavo</h2>
   <p>Ogni scavo raccoglie le sue US e USM, con ente, anno e località che finiscono in testa a ogni scheda. L’équipe vede le stesse schede in tempo reale; senza rete le modifiche restano sul dispositivo e partono appena torna la connessione.</p>
-  ${window.MODO_CAMPO?'<p class="muted">Nessuno scavo ancora: si crea dalla versione completa dell’app (tablet o PC).</p>':canWrite&&isSocio()?'<button class="primary" id="goNew">Crea uno scavo</button>':'<p class="muted">Nessuno scavo ancora: lo apre uno dei soci.</p>'}</div>`;
+  ${canWrite&&isSocio()?'<button class="primary" id="goNew">Crea uno scavo</button>':'<p class="muted">Nessuno scavo ancora: lo apre uno dei soci.</p>'}</div>`;
 }
-function bindEmpty(){const b=$('#goNew');if(b)b.onclick=()=>{go('scavo');setTimeout(()=>$('#ns-localita')?.focus(),30)}}
+function bindEmpty(){const b=$('#goNew');if(b)b.onclick=()=>{S.campoNuovo=true;go('scavo');setTimeout(()=>$('#ns-localita')?.focus(),30)}}
 
 /* ---- Elenco ---- */
 const COLS=[['definizione','Definizione',150],['colore','Colore',110],['consistenza','Consistenza',130],['interpretazione','Interpretazione',190],['fase','Fase',90]];
