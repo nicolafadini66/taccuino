@@ -8,8 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <script>window.TACCUINO_ARCHIVIO="https://script.google.com/macros/s/AKfycbzkUhOcQu30D9b6zGMEXKELU37J30rlg7SYTvGE673U4pbE42D3472zPMwLR7anJYTWCg/exec";</script>
-<script>window.TACCUINO_BUILD="27/10/2026 09:51";</script>
-<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+<script>window.TACCUINO_BUILD="28/10/2026 17:30";</script>
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}button.mx-btn{font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:inline-flex;align-items:center;gap:7px;cursor:pointer}button.mx-btn svg{width:15px;height:15px}
+</style>
 </head>
 <body>
 <style>
@@ -227,6 +228,7 @@ table.grid{border-collapse:collapse;width:100%;min-width:980px;font-size:14px}
     <div class="bar">
       <div class="brand"><i aria-hidden="true"></i>Taccuino di scavo</div>
       <div class="scavo-pick"><select id="scavoSel" aria-label="Scavo attivo"></select></div>
+      <button type="button" id="btnMatrix" class="mx-btn" title="Matrix di Harris delle US e USM">Matrix</button>
       <span id="sync" class="pill muted">Avvio…</span>
     </div>
     <nav class="tabs" role="tablist" aria-label="Sezioni">
@@ -1653,6 +1655,7 @@ $('#scavoSel').onchange=e=>{if(e.target.value==='__new'){go('scavo');setTimeout(
   S.cur=e.target.value;S.open=null;persist();subscribeUS();render()};
 
 function renderHeader(){
+  if(window.Matrix)setTimeout(()=>Matrix.refresh(),0);
   const sel=$('#scavoSel');const sc=Object.values(S.scavi).sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
   sel.innerHTML=(sc.length?'':'<option value="">Nessuno scavo</option>')+sc.map(s=>`<option value="${esc(s.id)}"${s.id===S.cur?' selected':''}>${esc(s.nome||scavoName(s))}${s.anno&&!s.nomeAnno?' · '+esc(s.anno):''}</option>`).join('')+(canWrite&&isSocio()?'<option value="__new">+ Nuovo scavo…</option>':'');
   document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===S.view));
@@ -1732,7 +1735,7 @@ function advPanel(list){
     <label class="f c4"><span>…la US / USM</span><input id="advNum" value="${esc(a.relNum||'')}" placeholder="es. 5" autocomplete="off"></label>
   </div>
   <div class="row" style="padding:0 14px 14px">${on?`<span><b>${list.length}</b> ${list.length===1?'unità':'unità'}: ${esc(list.map(r=>r.numero).join(', '))||'nessuna'}</span><span class="spacer"></span>
-    <button type="button" id="advXlsx" ${list.length?'':'disabled'}>Excel dei risultati</button><button type="button" id="advPdf" ${list.length?'':'disabled'}>PDF dei risultati</button><button type="button" class="ghost" id="advClr">Azzera</button>`:'<span class="muted small">Esempi: tutte le US della sezione S3; tutte le unità che tagliano la US 5; tutto ciò che è posteriore alla USM 15.</span>'}</div></details>`;
+    <button type="button" class="mx-btn" id="advMx" ${list.length?'':'disabled'}>Matrix dei risultati</button><button type="button" id="advXlsx" ${list.length?'':'disabled'}>Excel dei risultati</button><button type="button" id="advPdf" ${list.length?'':'disabled'}>PDF dei risultati</button><button type="button" class="ghost" id="advClr">Azzera</button>`:'<span class="muted small">Esempi: tutte le US della sezione S3; tutte le unità che tagliano la US 5; tutto ciò che è posteriore alla USM 15.</span>'}</div></details>`;
 }
 function renderElenco(){
   const m=$('#main');const all=recsOf(S.cur);const q=(S.q||'').toLowerCase();
@@ -1745,7 +1748,7 @@ function renderElenco(){
   ${isResp(curScavo())&&db&&changedSince(curScavo())?`<div class="small" style="margin-top:4px"><b>${changedSince(curScavo())} schede modificate dopo l’ultimo archivio.</b> <button class="ghost" id="goArc" style="min-height:30px;padding:2px 8px">Salva l’archivio</button></div>`:''}</div>
 </div>
   ${isR?'':newNumPanel()}
-  <div class="toolbar"><input type="search" id="q" placeholder="Cerca in tutte le voci delle schede…" value="${esc(S.q)}" aria-label="Cerca">
+  <div class="toolbar"><input type="search" id="q" placeholder="Cerca in tutte le voci delle schede…" value="${esc(S.q)}" aria-label="Cerca">${all.length?`<button type="button" class="mx-btn" id="qMx" title="Matrix delle unità elencate">Matrix${q||S.filter!=='tutte'?' dei risultati':''}</button>`:''}
   <div class="seg" role="group" aria-label="Filtra">${[['tutte','Tutte'],['bozza',`Da completare (${drafts})`],['US','US'],['USM','USM']].map(([t,l])=>`<button data-f="${t}" aria-pressed="${S.filter===t}">${l}</button>`).join('')}</div></div>
   ${all.length&&isR?advPanel(listA):''}
   ${all.length?`<div class="sheet"><table class="grid"><thead><tr><th class="num">N. · compilatore</th>${COLS.map(c=>`<th style="min-width:${c[2]}px">${c[1]}</th>`).join('')}<th>Rapporti</th></tr></thead><tbody>
@@ -1764,7 +1767,12 @@ function renderElenco(){
     const c=$('#advClr');if(c)c.onclick=()=>{S.adv={};persist();renderElenco()};
     const sc=curScavo(),fn=()=>{const a=S.adv||{};return [a.campo&&a.val?`${(ADV_CAMPI.find(x=>x[0]===a.campo)||['',''])[1]} ${a.val}`:'',a.rel&&a.relNum?`${(ADV_REL.find(x=>x[0]===a.rel)||['',''])[1].replace(/ \(.*\)/,'')} ${a.relNum}`:''].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|#%]+/g,'-')};
     const x=$('#advXlsx');if(x)x.onclick=()=>offerFile(`Ricerca ${fn()||'elenco'}.xlsx`,new Blob([buildXlsx(listA,sc)]));
-    const pd=$('#advPdf');if(pd)pd.onclick=()=>exportPdf(listA,sc,false,pdfNameMany(listA));}
+    const pd=$('#advPdf');if(pd)pd.onclick=()=>exportPdf(listA,sc,false,pdfNameMany(listA));
+    const mx=$('#advMx');if(mx)mx.onclick=()=>apriMatrix({nums:listA.map(r=>r.numero),etichetta:fn()||'risultati della ricerca'});}
+  {const qm=$('#qMx');if(qm){if(window.Matrix)qm.innerHTML=Matrix.icon+qm.textContent;
+    qm.onclick=()=>{const filt=q||S.filter!=='tutte';const lab=[q?`«${S.q}»`:'',S.filter==='bozza'?'da completare':S.filter==='US'||S.filter==='USM'?S.filter:''].filter(Boolean).join(', ');
+      apriMatrix(filt?{nums:listA.map(r=>r.numero),etichetta:'ricerca '+lab}:null)}}}
+  {const am=$('#advMx');if(am&&window.Matrix)am.innerHTML=Matrix.icon+am.textContent}
 
   m.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{S.open=b.dataset.open;ocrState=null;go('scheda')});
   bindNewNum();
@@ -2382,7 +2390,253 @@ function renderScavo(){
 }
 
 boot();
+
+/* ================= Matrix (pulsante in alto) ================= */
+const MX_FILTRI_SCAVO=[['ambiente','Ambiente / vano'],['periodo','Periodo'],['fase','Fase'],['attivita','Attività'],['datazione','Datazione'],
+  ['area','Area / edificio / struttura'],['saggio','Saggio'],['settore','Settore'],['quadrato','Quadrato'],['posizione','Posizione'],
+  ['definizione','Definizione'],['interpretazione','Interpretazione'],['tipo','Tipo (US / USM)'],['responsabile','Compilatore']];
+function apriMatrix(risultati){const sc=curScavo();if(!sc){toast('Apri prima uno scavo');return}
+  Matrix.open({nome:sc.nome||scavoName(sc),getRecs:()=>recsOf(S.cur),filtri:MX_FILTRI_SCAVO,offerFile,risultati:risultati&&risultati.nums?risultati:null})}
 </script>
+<script>
+/* ================= MATRIX — modulo comune a Taccuino di scavo e Taccuino sondaggi =================
+   Matrix di Harris a richiesta: tutte le unità, un elenco di US/USM, un periodo, una fase, un ambiente/vano, una trincea.
+   Uguale a / si lega a = stesso momento (riquadri affiancati, doppia linea); copre, taglia, riempie, si appoggia = posteriore.
+   Riduzione transitiva, segnalazione delle sequenze cicliche, esportazione SVG e PNG nello stile Akanthos. */
+(function(){
+const MX_REL_POST=['copre','taglia','riempie','siappoggia'], MX_REL_ANTE=['copertoda','tagliatoda','riempitoda','gliappoggia'], MX_REL_EQ=['uguale','silega'];
+const MX_BROWN='#4A1C14', MX_FILL='#F3E9E1', MX_CTX='#B9A39A', MX_FONT="'Century Gothic','Futura','Poppins','Avenir Next','Segoe UI',sans-serif";
+const mxNum=(a,b)=>String(a).localeCompare(String(b),'it',{numeric:true});
+const mxEsc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const mxNorm=s=>String(s??'').trim().replace(/^(usm?|uuss|uussmm)\s*/i,'').toLowerCase();
+const mxTxt=s=>String(s??'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+
+/* "1, 5-12, 20a" -> Set di numeri normalizzati */
+function mxParseList(s){
+  const out=new Set();
+  String(s||'').split(/[,;\s]+/).forEach(p=>{p=mxNorm(p);if(!p)return;
+    const m=p.match(/^(\d+)\s*[-–]\s*(\d+)$/);
+    if(m){const a=+m[1],b=+m[2];for(let i=Math.min(a,b);i<=Math.max(a,b)&&i-Math.min(a,b)<2000;i++)out.add(String(i))}
+    else out.add(p)});
+  return out;
+}
+
+/* ---------- grafo e disposizione ---------- */
+function mxBuild(recs,selNums,contesto){
+  const by=new Map();recs.forEach(r=>{const n=mxNorm(r.numero);if(n&&!by.has(n))by.set(n,r)});
+  const rel=(r,k)=>(r.rel&&r.rel[k]||[]).map(mxNorm).filter(n=>by.has(n));
+  // gruppi di contemporaneità
+  const par=new Map([...by.keys()].map(n=>[n,n]));const f=x=>{while(par.get(x)!==x){par.set(x,par.get(par.get(x)));x=par.get(x)}return x};
+  by.forEach((r,n)=>MX_REL_EQ.forEach(k=>rel(r,k).forEach(m=>{const a=f(n),b=f(m);if(a!==b)par.set(a,b)})));
+  // rapporti di sequenza fra unità
+  const raw=[];by.forEach((r,n)=>{MX_REL_POST.forEach(k=>rel(r,k).forEach(m=>raw.push([n,m])));MX_REL_ANTE.forEach(k=>rel(r,k).forEach(m=>raw.push([m,n])))});
+  // unità da mostrare
+  const sel=new Set([...selNums].filter(n=>by.has(n)));const show=new Set(sel);
+  if(contesto)raw.forEach(([a,b])=>{if(sel.has(a))show.add(b);if(sel.has(b))show.add(a)});
+  by.forEach((r,n)=>{if(show.has(n))[...by.keys()].forEach(m=>{if(f(m)===f(n))show.add(m)})});
+  const groups=new Map();[...show].forEach(n=>{const g=f(n);if(!groups.has(g))groups.set(g,[]);groups.get(g).push(n)});
+  groups.forEach(v=>v.sort(mxNum));
+  const avvisi=[];const succ=new Map([...groups.keys()].map(g=>[g,new Set()]));
+  raw.forEach(([a,b])=>{if(!show.has(a)||!show.has(b))return;const ga=f(a),gb=f(b);
+    if(ga===gb){avvisi.push(`${a} e ${b} sono contemporanee (uguale a / si lega a) ma anche in sequenza fra loro`);return}
+    succ.get(ga).add(gb)});
+  // cicli: si interrompono e si segnalano
+  const col=new Map();const lab=g=>groups.get(g).join('=');
+  const dfs=(u,st)=>{col.set(u,1);st.push(u);for(const v of [...succ.get(u)]){if(col.get(v)===1){avvisi.push('Sequenza ciclica: '+st.slice(st.indexOf(v)).concat(v).map(lab).join(' → '));succ.get(u).delete(v)}else if(!col.get(v))dfs(v,st)}st.pop();col.set(u,2)};
+  [...groups.keys()].sort(mxNum).forEach(g=>{if(!col.get(g))dfs(g,[])});
+  // riduzione transitiva
+  const reach=(s,t,skip)=>{const seen=new Set([s]),q=[...succ.get(s)].filter(x=>x!==skip);while(q.length){const x=q.pop();if(x===t)return true;if(seen.has(x))continue;seen.add(x);succ.get(x).forEach(y=>q.push(y))}return false};
+  succ.forEach((vs,u)=>[...vs].forEach(v=>{if(reach(u,v,v))vs.delete(v)}));
+  // livelli (percorso più lungo dall'alto)
+  const indeg=new Map([...groups.keys()].map(g=>[g,0]));succ.forEach(vs=>vs.forEach(v=>indeg.set(v,indeg.get(v)+1)));
+  const lev=new Map();const q=[...groups.keys()].filter(g=>!indeg.get(g)).sort(mxNum);q.forEach(g=>lev.set(g,0));
+  const ind=new Map(indeg);while(q.length){const u=q.shift();succ.get(u).forEach(v=>{lev.set(v,Math.max(lev.get(v)||0,lev.get(u)+1));ind.set(v,ind.get(v)-1);if(!ind.get(v))q.push(v)})}
+  // nodi fittizi per i rapporti che scavalcano più livelli
+  const nodes=new Map();groups.forEach((m,g)=>nodes.set(g,{id:g,m,lev:lev.get(g)||0,dummy:false}));
+  const edges=[];let dn=0;
+  succ.forEach((vs,u)=>vs.forEach(v=>{let a=u;const chain=[u];for(let l=nodes.get(u).lev+1;l<nodes.get(v).lev;l++){const id='~'+(dn++);nodes.set(id,{id,m:[],lev:l,dummy:true});chain.push(id)}chain.push(v);
+    for(let i=0;i<chain.length-1;i++)edges.push([chain[i],chain[i+1]]);}));
+  const L=[];nodes.forEach(n=>{(L[n.lev]=L[n.lev]||[]).push(n)});for(let i=0;i<L.length;i++)L[i]=L[i]||[];
+  L.forEach(l=>l.sort((a,b)=>mxNum(a.m[0]||'zz',b.m[0]||'zz')));
+  const up=new Map(),dw=new Map();edges.forEach(([a,b])=>{(dw.get(a)||dw.set(a,[]).get(a)).push(b);(up.get(b)||up.set(b,[]).get(b)).push(a)});
+  const pos=new Map();const setPos=()=>L.forEach(l=>l.forEach((n,i)=>pos.set(n.id,i)));setPos();
+  for(let it=0;it<8;it++){
+    const down=it%2===0;const rng=down?[...L.keys()].slice(1):[...L.keys()].slice(0,-1).reverse();
+    rng.forEach(li=>{const nb=down?up:dw;L[li].forEach(n=>{const ns=nb.get(n.id)||[];n._b=ns.length?ns.reduce((s,x)=>s+pos.get(x),0)/ns.length:pos.get(n.id)});
+      L[li].sort((a,b)=>a._b-b._b||mxNum(a.m[0]||'zz',b.m[0]||'zz'));L[li].forEach((n,i)=>pos.set(n.id,i))});
+  }
+  // coordinate
+  const BW=78,BH=26,EQ=12,HG=22,VG=34;
+  nodes.forEach(n=>n.w=n.dummy?4:n.m.length*BW+(n.m.length-1)*EQ);
+  const X=new Map();
+  L.forEach(l=>{let x=0;l.forEach(n=>{X.set(n.id,x+n.w/2);x+=n.w+HG})});
+  const fix=l=>{for(let i=1;i<l.length;i++){const a=l[i-1],b=l[i],mn=X.get(a.id)+a.w/2+HG+b.w/2;if(X.get(b.id)<mn)X.set(b.id,mn)}};
+  const fixC=l=>{fix(l);for(let i=l.length-2;i>=0;i--){const a=l[i],b=l[i+1],mx=X.get(b.id)-b.w/2-HG-a.w/2;if(X.get(a.id)>mx)X.set(a.id,mx)}};
+  const avg=(ns)=>ns.reduce((s,x)=>s+X.get(x),0)/ns.length;
+  for(let it=0;it<10;it++){
+    const down=it%2===0,order=down?[...L.keys()]:[...L.keys()].reverse();
+    order.forEach(li=>{const l=L[li];l.forEach(n=>{const ns=(down?up:dw).get(n.id)||[];if(ns.length)n._t=avg(ns);else n._t=X.get(n.id)});
+      l.forEach(n=>X.set(n.id,n._t));l.sort((a,b)=>pos.get(a.id)-pos.get(b.id));fixC(l);fix(l)});
+  }
+  let mn=Infinity,mxx=-Infinity;nodes.forEach(n=>{mn=Math.min(mn,X.get(n.id)-n.w/2);mxx=Math.max(mxx,X.get(n.id)+n.w/2)});
+  nodes.forEach(n=>{n.x=X.get(n.id)-mn;n.y=n.lev*(BH+VG)});
+  const unrelated=[...show].filter(n=>!raw.some(([a,b])=>(a===n||b===n)&&show.has(a)&&show.has(b))&&groups.get(f(n)).length===1);
+  return{nodes,edges,W:Math.max(0,mxx-mn),H:L.length?L.length*(BH+VG)-VG:0,BW,BH,EQ,VG,sel,by,avvisi:[...new Set(avvisi)],unrelated};
+}
+
+function mxPart(G,titolo){
+  const M=18,TT=titolo?30:0,W=Math.max(G.W+2*M,160,titolo?String(titolo).length*7.6+40:0),H=G.H+2*M+TT;const o=[];
+  if(titolo)o.push(`<text x="${W/2}" y="${M+12}" text-anchor="middle" font-size="14" font-weight="700" fill="${MX_BROWN}">${mxEsc(titolo)}</text>`);
+  const ox=M+(W-2*M-G.W)/2,oy=M+TT;
+  const n=id=>G.nodes.get(id);
+  G.edges.forEach(([a,b])=>{const A=n(a),B=n(b);const x1=ox+A.x,y1=oy+A.y+(A.dummy?0:G.BH),x2=ox+B.x,y2=oy+B.y,ym=y1+(y2-y1)/2;
+    let d=`M${x1},${A.dummy?oy+A.y:y1}`;if(A.dummy)d+=` V${oy+A.y+G.BH}`;const yy=oy+A.y+G.BH,yb=yy+(y2-yy)/2;
+    d+=` V${yb} H${x2} V${y2}`;if(B.dummy)d+=` V${y2+G.BH}`;
+    o.push(`<path d="${d}" fill="none" stroke="${MX_BROWN}" stroke-width="1.1"/>`)});
+  G.nodes.forEach(N=>{if(N.dummy)return;const x0=ox+N.x-N.w/2,y0=oy+N.y;
+    N.m.forEach((num,i)=>{const r=G.by.get(num),x=x0+i*(G.BW+G.EQ),inSel=G.sel.has(num);
+      if(i>0){const xa=x-G.EQ,ym=y0+G.BH/2;o.push(`<path d="M${xa},${ym-2} H${x} M${xa},${ym+2} H${x}" stroke="${MX_BROWN}" stroke-width="1.2"/>`)}
+      o.push(`<rect x="${x}" y="${y0}" width="${G.BW}" height="${G.BH}" rx="6" fill="${inSel?MX_FILL:'#fff'}" stroke="${inSel?MX_BROWN:MX_CTX}" stroke-width="1.1"${inSel?'':' stroke-dasharray="4 3"'}/>`);
+      o.push(`<text x="${x+G.BW/2}" y="${y0+G.BH/2+4.5}" text-anchor="middle" font-size="12.5" fill="${inSel?MX_BROWN:'#9C8076'}">${mxEsc((r&&r.tipo)||'US')} ${mxEsc(r?r.numero:num)}</text>`)})});
+  return{W,H,body:o.join('')};
+}
+/* uno o più matrix nello stesso SVG: titolo generale e pannelli in colonna */
+function mxCompose(parts,titolo){
+  const TT=titolo&&parts.length>1?40:0,GAP=parts.length>1?18:0;
+  const W=Math.max(...parts.map(p=>p.W),TT?String(titolo).length*8.8+40:0),H=TT+parts.reduce((a,p)=>a+p.H,0)+GAP*(parts.length-1);
+  const o=[`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="${MX_FONT.replace(/"/g,'')}"><rect width="${W}" height="${H}" fill="#fff"/>`];
+  if(TT)o.push(`<text x="${W/2}" y="26" text-anchor="middle" font-size="16" font-weight="700" fill="${MX_BROWN}">${mxEsc(titolo)}</text>`);
+  let y=TT;parts.forEach((p,i)=>{if(i)o.push(`<line x1="20" x2="${W-20}" y1="${y-GAP/2}" y2="${y-GAP/2}" stroke="${MX_CTX}" stroke-width=".6"/>`);
+    o.push(`<g transform="translate(${(W-p.W)/2},${y})">${p.body}</g>`);y+=p.H+GAP});
+  o.push('</svg>');return o.join('');
+}
+function mxSvg(G,titolo){return mxCompose([mxPart(G,titolo)],titolo)}
+
+/* ---------- finestra ---------- */
+const MX_CSS=`.mx-ov{position:fixed;inset:0;z-index:60;background:var(--paper,#f3f1ee);overflow:auto;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 40px;color:var(--ink,#222)}
+.mx-ov[hidden]{display:none}.mx-in{max-width:1200px;margin:0 auto}
+.mx-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.mx-hd h2{margin:0;font-size:22px}
+.mx-ctl{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;background:var(--surface,#fff);border:1px solid var(--line,#ddd);border-radius:10px;padding:12px;margin-bottom:12px}
+.mx-ctl label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;min-width:150px}.mx-ctl label.mx-chk{flex-direction:row;align-items:center;min-width:0;font-weight:500}
+.mx-ctl input[type=text],.mx-ctl select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid var(--line,#ccc);border-radius:8px;background:var(--surface,#fff);color:inherit;min-width:170px}
+.mx-act{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.mx-view{background:#fff;border:1px solid var(--line,#ddd);border-radius:10px;padding:10px;overflow:auto;max-height:68vh;-webkit-overflow-scrolling:touch}
+.mx-view svg{display:block;margin:0 auto;max-width:none}
+.mx-note{font-size:13px;margin:10px 2px;line-height:1.45}.mx-note.err{color:var(--err,#b3261e)}.mx-note.muted{color:var(--muted,#666)}
+.mx-leg{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted,#666);margin:8px 2px}
+.mx-btn{font:inherit;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;padding:6px 12px;border-radius:99px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.mx-btn svg{width:15px;height:15px}`;
+let mxCfg=null,mxState={modo:'',val:'',ctx:true,zoom:1};
+try{Object.assign(mxState,JSON.parse(localStorage.getItem('mx-pref')||'{}'))}catch(e){}
+const mxSave=()=>{try{localStorage.setItem('mx-pref',JSON.stringify({modo:mxState.modo,ctx:mxState.ctx}))}catch(e){}};
+
+function mxValues(recs,k){const s=new Set();recs.forEach(r=>{(k==='trincea'?(r.trincee||[]):[r[k]]).forEach(v=>{v=String(v||'').trim();if(v)s.add(v)})});return [...s].sort(mxNum)}
+const OGNI='__ogni';
+const mxPanel=(m,lab,v)=>{if(m==='trincea')return v;const w=mxTxt(lab).split(/[^a-z]+/).filter(x=>x.length>2);return w.some(x=>mxTxt(v).startsWith(x))?v:`${lab} ${v}`};
+function mxMatch(r,m,t){return m==='trincea'?(r.trincee||[]).some(x=>mxTxt(x)===t):(mxTxt(r[m])===t||mxTxt(r[m]).split(/\s*[,;]\s*/).includes(t))}
+/* trincee: le US sono divise fra le trincee o diffuse in tutte? */
+function mxAuto(recs){
+  const tr=mxValues(recs,'trincea');if(tr.length<2)return{modo:'tutte',perche:tr.length?'una sola trincea':'nessuna trincea con sezioni'};
+  const conTr=recs.filter(r=>(r.trincee||[]).length);if(!conTr.length)return{modo:'tutte',perche:'US non ancora collegate alle sezioni'};
+  const diffuse=conTr.filter(r=>r.trincee.length>=Math.max(2,Math.ceil(tr.length*0.5))).length/conTr.length;
+  return diffuse>=0.5?{modo:'tutte',perche:`le US sono diffuse nella maggior parte delle ${tr.length} trincee: matrix generale`}
+    :{modo:'trincea',val:OGNI,perche:`le US sono distinte trincea per trincea: un matrix per ciascuna delle ${tr.length} trincee`};
+}
+function mxSelect(recs){
+  const m=mxState.modo,v=mxState.val;
+  if(m==='tutte')return new Set(recs.map(r=>mxNorm(r.numero)));
+  if(m==='elenco')return mxParseList(v);
+  if(!String(v).trim())return new Set();
+  const t=mxTxt(v);
+  return new Set(recs.filter(r=>m==='trincea'?(r.trincee||[]).some(x=>mxTxt(x)===t):mxTxt(r[m])===t||mxTxt(r[m]).split(/\s*[,;]\s*/).includes(t)).map(r=>mxNorm(r.numero)));
+}
+function mxTitle(modo=mxState.modo,val=mxState.val){const m=modo,v=String(val||'').trim(),F=(mxCfg.filtri||[]).find(x=>x[0]===m);
+  const base=mxCfg.nome?`Matrix – ${mxCfg.nome}`:'Matrix',lab=F?F[1]:m;
+  if(m==='risultati')return `${base} · ${mxCfg.risultati.etichetta||'risultati della ricerca'}`;if(m==='tutte')return base;if(m==='elenco')return v?`${base} · ${v}`:base;if(v===OGNI)return `${base} · per ${lab.toLowerCase()}`;return v?`${base} · ${mxPanel(m,lab,v)}`:base}
+
+function mxDraw(){
+  const ov=document.getElementById('mxOv');if(!ov||ov.hidden)return;
+  const recs=mxCfg.getRecs();const view=ov.querySelector('.mx-view'),note=ov.querySelector('.mx-notes');
+  let modo=mxState.modo,val=mxState.val,auto='';
+  if(modo==='auto'){const a=mxAuto(recs);modo=a.modo;val=a.val||'';auto=a.perche}
+  const tit=mxTitle(modo,val);let G,svg,sel;
+  if(modo!=='tutte'&&modo!=='elenco'&&val===OGNI){
+    const Fl=(mxCfg.filtri||[]).find(x=>x[0]===modo),lab=Fl?Fl[1]:modo;
+    const parts=[],agg={avvisi:[],unrelated:[]};
+    mxValues(recs,modo).forEach(v=>{const t=mxTxt(v),s0=new Set(recs.filter(r=>mxMatch(r,modo,t)).map(r=>mxNorm(r.numero)));
+      const g=mxBuild(recs,s0,modo==='trincea'?false:mxState.ctx);if(!g.nodes.size)return;parts.push(mxPart(g,mxPanel(modo,lab,v)));
+      g.avvisi.forEach(a=>agg.avvisi.push(`${mxPanel(modo,lab,v)}: ${a}`))});
+    const senza=recs.filter(r=>modo==='trincea'?!(r.trincee||[]).length:!String(r[modo]||'').trim()).map(r=>mxNorm(r.numero));
+    if(senza.length){const g=mxBuild(recs,new Set(senza),false);if(g.nodes.size)parts.push(mxPart(g,`Senza ${lab.toLowerCase()} indicato`))}
+    if(!parts.length){view.innerHTML=`<p class="mx-note muted" style="text-align:center;padding:30px">Il campo «${mxEsc(lab)}» non è compilato in nessuna scheda.</p>`;note.innerHTML=auto?`<p class="mx-note muted">${mxEsc(auto)}.</p>`:'';ov._svg=null;return}
+    svg=mxCompose(parts,tit);G={avvisi:agg.avvisi,unrelated:[],by:new Map()};sel=new Set();
+  }else{
+    sel=modo==='risultati'?new Set(mxCfg.risultati.nums.map(mxNorm)):modo==='tutte'?new Set(recs.map(r=>mxNorm(r.numero))):modo==='elenco'?mxParseList(val):String(val).trim()?new Set(recs.filter(r=>mxMatch(r,modo,mxTxt(val))).map(r=>mxNorm(r.numero))):new Set();
+    G=mxBuild(recs,sel,mxState.ctx);
+    if(!G.nodes.size){view.innerHTML=`<p class="mx-note muted" style="text-align:center;padding:30px">${modo==='tutte'?'Nessuna unità schedata in questo scavo.':'Nessuna unità corrisponde alla scelta.'}</p>`;note.innerHTML='';ov._svg=null;return}
+    svg=mxSvg(G,tit);
+  }
+  ov._svg=svg;ov._nome=tit;
+  view.innerHTML=svg;const s=view.querySelector('svg');s.style.width=(parseFloat(s.getAttribute('width'))*mxState.zoom)+'px';s.style.height='auto';
+  const extra=[...sel].filter(n=>!G.by.has(n));
+  note.innerHTML=(auto?`<p class="mx-note muted"><b>Scelta automatica:</b> ${mxEsc(auto)}.</p>`:'')+(G.avvisi.length?`<p class="mx-note err"><b>Da verificare:</b> ${G.avvisi.map(mxEsc).join('; ')}.</p>`:'')+
+    (G.unrelated.length?`<p class="mx-note muted">Senza rapporti con le altre unità mostrate: ${G.unrelated.sort(mxNum).map(n=>mxEsc((G.by.get(n)||{}).tipo||'US')+' '+mxEsc(n)).join(', ')}.</p>`:'')+
+    (extra.length?`<p class="mx-note muted">Non ancora schedate: ${extra.sort(mxNum).map(mxEsc).join(', ')}.</p>`:'');
+}
+function mxControls(){
+  const ov=document.getElementById('mxOv');const recs=mxCfg.getRecs();
+  const F=[...(mxCfg.risultati?[['risultati','Risultati della ricerca']]:[]),...(mxCfg.auto?[['auto','Automatico (per trincea o generale)']]:[]),['tutte','Tutte le unità'],['elenco','Elenco di US / USM'],...(mxCfg.filtri||[]).map(([k,l])=>[k,'Per '+l.toLowerCase()])];
+  if(!F.some(x=>x[0]===mxState.modo))mxState.modo='tutte';
+  const m=mxState.modo;let campo='';
+  if(m==='elenco')campo=`<label>US / USM<input type="text" id="mxVal" inputmode="text" placeholder="es. 1, 5-12, 20" value="${mxEsc(mxState.val)}"></label>`;
+  else if(m==='risultati')campo=`<label>Ricerca<input type="text" value="${mxEsc(mxCfg.risultati.etichetta||'')} (${mxCfg.risultati.nums.length})" disabled></label>`;
+  else if(m!=='tutte'&&m!=='auto'){const vals=mxValues(recs,m),lab=((mxCfg.filtri||[]).find(x=>x[0]===m)||[])[1]||'';
+    if(!mxState.val)mxState.val=OGNI;
+    campo=vals.length?`<label>${mxEsc(lab)}<select id="mxVal"><option value="${OGNI}"${mxState.val===OGNI?' selected':''}>Tutti: un matrix per ${mxEsc(lab.toLowerCase())}</option>${vals.map(v=>`<option${v===mxState.val?' selected':''}>${mxEsc(v)}</option>`).join('')}</select></label>`
+      :`<label>${mxEsc(lab)}<input type="text" id="mxVal" value="" placeholder="campo non compilato nelle schede" disabled></label>`}
+  ov.querySelector('.mx-ctl').innerHTML=`<label>Mostra<select id="mxModo">${F.map(([k,l])=>`<option value="${k}"${k===m?' selected':''}>${mxEsc(l)}</option>`).join('')}</select></label>${campo}
+    ${m!=='tutte'&&m!=='auto'&&!(m==='trincea'&&mxState.val===OGNI)?`<label class="mx-chk"><input type="checkbox" id="mxCtx"${mxState.ctx?' checked':''}> Mostra le unità collegate (tratteggiate)</label>`:''}
+    <label>Ingrandimento<select id="mxZoom">${[0.6,0.8,1,1.25,1.6,2].map(z=>`<option value="${z}"${z===mxState.zoom?' selected':''}>${Math.round(z*100)}%</option>`).join('')}</select></label>
+    <div class="mx-act"><button type="button" id="mxSvgB">Scarica SVG</button><button type="button" class="primary" id="mxPngB">Scarica PNG</button></div>`;
+  ov.querySelector('#mxModo').onchange=e=>{mxState.modo=e.target.value;mxState.val='';if(mxState.modo!=='risultati')mxSave();mxControls();mxDraw()};
+  const v=ov.querySelector('#mxVal');if(v){v.oninput=v.onchange=e=>{mxState.val=e.target.value;mxDraw()}}
+  const c=ov.querySelector('#mxCtx');if(c)c.onchange=e=>{mxState.ctx=e.target.checked;mxSave();mxDraw()};
+  ov.querySelector('#mxZoom').onchange=e=>{mxState.zoom=+e.target.value;mxDraw()};
+  ov.querySelector('#mxSvgB').onclick=()=>{if(!ov._svg)return;mxFile(mxFileName(ov._nome)+'.svg',new Blob([ov._svg],{type:'image/svg+xml'}))};
+  ov.querySelector('#mxPngB').onclick=()=>{if(!ov._svg)return;mxPng(ov._svg).then(b=>mxFile(mxFileName(ov._nome)+'.png',b)).catch(()=>alertMsg('Non riesco a creare il PNG su questo dispositivo: usa lo SVG.'))};
+}
+const alertMsg=t=>{const n=document.querySelector('#mxOv .mx-notes');if(n)n.insertAdjacentHTML('afterbegin',`<p class="mx-note err">${mxEsc(t)}</p>`)};
+const mxFileName=t=>String(t||'Matrix').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[\\/:*?"<>|#%·]+/g,' ').replace(/\s+/g,' ').trim().slice(0,90);
+function mxFile(name,blob){if(mxCfg.offerFile)return mxCfg.offerFile(name,blob);
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),60000)}
+function mxPng(svg,scala=3){return new Promise((ok,ko)=>{const img=new Image();const u=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
+  img.onload=()=>{const c=document.createElement('canvas');c.width=img.width*scala;c.height=img.height*scala;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>b?ok(b):ko(),'image/png')};
+  img.onerror=()=>{URL.revokeObjectURL(u);ko()};img.src=u})}
+
+function mxOpen(cfg){
+  mxCfg=cfg;if(cfg.risultati)mxState.modo='risultati';else if(!mxState.modo||mxState.modo==='risultati')mxState.modo=cfg.auto?'auto':'tutte';
+  if(!document.getElementById('mxCss')){const st=document.createElement('style');st.id='mxCss';st.textContent=MX_CSS;document.head.append(st)}
+  let ov=document.getElementById('mxOv');
+  if(!ov){ov=document.createElement('div');ov.id='mxOv';ov.className='mx-ov';ov.setAttribute('role','dialog');ov.setAttribute('aria-modal','true');ov.setAttribute('aria-labelledby','mxTitle');document.body.append(ov)}
+  ov.innerHTML=`<div class="mx-in"><div class="mx-hd"><div><h2 id="mxTitle">Matrix</h2><div class="mx-note muted" style="margin:2px 0 0">${mxEsc(cfg.nome||'')} · rapporti letti dalle schede, aggiornati a ogni modifica</div></div><button type="button" id="mxClose">Chiudi</button></div>
+    <div class="mx-ctl"></div><div class="mx-view"></div>
+    <div class="mx-leg"><span>▭ unità selezionata</span><span>┄ unità collegata, fuori selezione</span><span>═ uguale a / si lega a</span><span>linea verticale: l’unità in alto è posteriore</span></div>
+    <div class="mx-notes"></div></div>`;
+  ov.hidden=false;document.body.style.overflow='hidden';
+  ov._ret=document.activeElement;
+  ov.querySelector('#mxClose').onclick=mxClose;
+  mxControls();mxDraw();ov.querySelector('#mxClose').focus();
+}
+function mxClose(){const ov=document.getElementById('mxOv');if(!ov)return;ov.hidden=true;ov.innerHTML='';document.body.style.overflow='';if(ov._ret&&ov._ret.focus)ov._ret.focus()}
+document.addEventListener('keydown',e=>{const ov=document.getElementById('mxOv');if(e.key==='Escape'&&ov&&!ov.hidden)mxClose()});
+
+window.Matrix={open:mxOpen,close:mxClose,refresh:mxDraw,_build:mxBuild,_svg:mxSvg,_parse:mxParseList};
+const MX_ICON='<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5.5" y="1" width="5" height="3.4" rx="1"/><rect x="1" y="11.6" width="5" height="3.4" rx="1"/><rect x="10" y="11.6" width="5" height="3.4" rx="1"/><path d="M8 4.4V8M3.5 8h9M3.5 8v3.6M12.5 8v3.6"/></svg>';
+window.Matrix.icon=MX_ICON;
+})();
+
+</script>
+<script>(function(){const b=document.getElementById('btnMatrix');if(b&&window.Matrix){b.innerHTML=Matrix.icon+'Matrix';b.onclick=()=>apriMatrix()}})();</script>
 
 </body>
 </html>
